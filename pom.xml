@@ -53,13 +53,6 @@
             <version>2.10.1</version>
         </dependency>
 
-        <!-- Charts Library (JFreeChart) -->
-        <dependency>
-            <groupId>org.jfree</groupId>
-            <artifactId>jfreechart</artifactId>
-            <version>1.5.4</version>
-        </dependency>
-
         <!-- Database SQLite -->
         <dependency>
             <groupId>org.xerial</groupId>

@@ -2,7 +2,6 @@ package com.flightbot.services;
 
 import com.flightbot.config.ConfigLoader;
 import com.flightbot.models.Airport;
-import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -49,16 +48,16 @@ public class AirportService {
             Airport aeroporto = new Airport(); //crea un nuovo oggetto Airport
 
             //usa fullName se disponibile, altrimenti shortName
-            String nome = getStringOrNull(json, "fullName");
+            String nome = getStringONull(json, "fullName");
             if (nome == null)
-                nome = getStringOrNull(json, "shortName");
+                nome = getStringONull(json, "shortName");
 
             aeroporto.setNome(nome);
 
-            aeroporto.setCodiceIata(getStringOrNull(json, "iata"));
-            aeroporto.setCodiceIcao(getStringOrNull(json, "icao"));
+            aeroporto.setCodiceIata(getStringONull(json, "iata"));
+            aeroporto.setCodiceIcao(getStringONull(json, "icao"));
 
-            JsonObject objPosizione = getJsonObjectOrNull(json, "location");
+            JsonObject objPosizione = getJsonObjectONull(json, "location");
             if (objPosizione != null) {
                 if (objPosizione.get("lat") != null && !objPosizione.get("lat").isJsonNull())
                     aeroporto.setLatitudine(objPosizione.get("lat").getAsDouble());
@@ -67,18 +66,18 @@ public class AirportService {
                     aeroporto.setLongitudine(objPosizione.get("lon").getAsDouble());
             }
 
-            aeroporto.setCitta(getStringOrNull(json, "municipalityName"));
+            aeroporto.setCitta(getStringONull(json, "municipalityName"));
 
-            JsonObject objPaese = getJsonObjectOrNull(json, "country");
+            JsonObject objPaese = getJsonObjectONull(json, "country");
             if (objPaese != null)
-                aeroporto.setPaese(getStringOrNull(objPaese, "name"));
+                aeroporto.setPaese(getStringONull(objPaese, "name"));
 
-            aeroporto.setFuso(getStringOrNull(json, "timeZone"));
+            aeroporto.setFuso(getStringONull(json, "timeZone"));
 
-            JsonObject urlsObj = getJsonObjectOrNull(json, "urls");
+            JsonObject urlsObj = getJsonObjectONull(json, "urls");
             if (urlsObj != null) {
-                aeroporto.setSito(getStringOrNull(urlsObj, "webSite"));
-                aeroporto.setGoogleMaps(getStringOrNull(urlsObj, "googleMaps"));
+                aeroporto.setSito(getStringONull(urlsObj, "webSite"));
+                aeroporto.setGoogleMaps(getStringONull(urlsObj, "googleMaps"));
             }
             return aeroporto;
         } catch (Exception e) {
@@ -87,12 +86,12 @@ public class AirportService {
         }
     }
 
-    private String getStringOrNull(JsonObject obj, String key) {
+    private String getStringONull(JsonObject obj, String key) {
         JsonElement elemento = obj.get(key);
         return (elemento != null && !elemento.isJsonNull()) ? elemento.getAsString() : null;
     }
 
-    private JsonObject getJsonObjectOrNull(JsonObject obj, String key) {
+    private JsonObject getJsonObjectONull(JsonObject obj, String key) {
         JsonElement elemento = obj.get(key);
         return (elemento != null && !elemento.isJsonNull() && elemento.isJsonObject()) ? elemento.getAsJsonObject() : null;
     }

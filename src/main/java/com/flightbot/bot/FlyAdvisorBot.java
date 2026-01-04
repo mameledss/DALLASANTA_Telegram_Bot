@@ -278,10 +278,8 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 }
                 break;
             case "settings":
-                if (parti.length > 1) {
-                    String azioneImpostazioni = parti[1];
+                if (parti.length > 1)
                     gestisciImpostazioni(chatId, parti);
-                }
                 break;
         }
     }
@@ -539,7 +537,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             logger.severe(String.format("Errore nell'invio pulsanti info aggiuntive: %s", e.getMessage()));
         }
         if (volo.getIataCompagnia() != null) {
-            File logo = imageService.downloadLogoCompagnia(volo.getIataCompagnia()); //scarica logo compagnia
+            File logo = imageService.scaricaLogoCompagnia(volo.getIataCompagnia()); //scarica logo compagnia
             if (logo != null)
                 invioFoto(chatId, logo, "Logo " + volo.getCopagnia()); //lo invia con nome compagnia
         }
@@ -576,9 +574,8 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
 
         if (aeroporto.getLatitudine() != null && aeroporto.getLongitudine() != null) {
             Weather meteo = weatherService.getMeteoDaCoord(aeroporto.getLatitudine(), aeroporto.getLongitudine());
-            if (meteo != null) {
+            if (meteo != null)
                 info.append(meteo.toString());
-            }
         }
         invioMsg(chatId, info.toString());
     }
@@ -734,7 +731,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     public void chiusura() {
-        notificationScheduler.shutdown();
+        notificationScheduler.spegni();
         DatabaseManager.getInstance().close();
     }
 }

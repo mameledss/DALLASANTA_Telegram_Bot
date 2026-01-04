@@ -38,11 +38,9 @@ public class FlightService {
                 JsonObject jsonObject = JsonParser.parseString(jsonResponse).getAsJsonObject();
                 JsonArray data = jsonObject.getAsJsonArray("data");
 
-                if (data.size() == 0) {
-                    return null;
-                }
+                if (data.isEmpty()) return null;
 
-                return parseFlightFromJson(data.get(0).getAsJsonObject());
+                return daJsonAFlight(data.get(0).getAsJsonObject()); //prende solo il primo volo
             }
         } catch (IOException e) {
             logger.severe(String.format("Errore nell'ottenere info volo: %s", e.getMessage()));
@@ -50,76 +48,64 @@ public class FlightService {
         }
     }
 
-    private Flight parseFlightFromJson(JsonObject json) {
+    private Flight daJsonAFlight(JsonObject json) {
         try {
             Flight flight = new Flight();
 
-            // Flight info
-            JsonObject flightObj = getJsonObjectOrNull(json, "flight");
-            if (flightObj != null) {
-                flight.setNumeroVolo(getStringOrNull(flightObj, "iata"));
-                flight.setIataCompagnia(getStringOrNull(flightObj, "iata") != null ?
-                        getStringOrNull(flightObj, "iata").substring(0, 2) : null);
+            JsonObject volo = getJsonObjectONull(json, "flight");
+            if (volo != null) {
+                flight.setNumeroVolo(getStringONull(volo, "iata"));
+                flight.setIataCompagnia(getStringONull(volo, "iata") != null ? getStringONull(volo, "iata").substring(0, 2) : null); //prima due lettere->IATA compagnia
             }
 
-            // Airline
-            JsonObject airlineObj = getJsonObjectOrNull(json, "airline");
-            if (airlineObj != null) {
-                flight.setCompagnia(getStringOrNull(airlineObj, "name"));
+            JsonObject compagnia = getJsonObjectONull(json, "airline");
+            if (compagnia != null)
+                flight.setCompagnia(getStringONull(compagnia, "name"));
+
+            flight.setStato(getStringONull(json, "flight_status"));
+
+            JsonObject partenza = getJsonObjectONull(json, "departure");
+            if (partenza != null) {
+                flight.setAeroportoPartenza(getStringONull(partenza, "airport"));
+                flight.setIataPartenza(getStringONull(partenza, "iata"));
+                flight.setOrarioPartenza(getStringONull(partenza, "actual"));
+                flight.setPartenzaProgrammata(getStringONull(partenza, "scheduled"));
+                flight.setTerminal(getStringONull(partenza, "terminal"));
+                flight.setGate(getStringONull(partenza, "gate"));
+
+                if (partenza.get("delay") != null && !partenza.get("delay").isJsonNull())
+                    flight.setRitardo(partenza.get("delay").getAsInt());
             }
 
-            // Flight status
-            flight.setStato(getStringOrNull(json, "flight_status"));
-
-            // Departure
-            JsonObject departureObj = getJsonObjectOrNull(json, "departure");
-            if (departureObj != null) {
-                flight.setAeroportoPartenza(getStringOrNull(departureObj, "airport"));
-                flight.setIataPartenza(getStringOrNull(departureObj, "iata"));
-                flight.setOrarioPartenza(getStringOrNull(departureObj, "actual"));
-                flight.setPartenzaProgrammata(getStringOrNull(departureObj, "scheduled"));
-                flight.setTerminal(getStringOrNull(departureObj, "terminal"));
-                flight.setGate(getStringOrNull(departureObj, "gate"));
-
-                if (departureObj.get("delay") != null && !departureObj.get("delay").isJsonNull()) {
-                    flight.setRitardo(departureObj.get("delay").getAsInt());
-                }
+            JsonObject arrivo = getJsonObjectONull(json, "arrival");
+            if (arrivo != null) {
+                flight.setAeroportoArrivo(getStringONull(arrivo, "airport"));
+                flight.setIataArrivo(getStringONull(arrivo, "iata"));
+                flight.setOrarioArrivo(getStringONull(arrivo, "actual"));
+                flight.setArrivoProgrammato(getStringONull(arrivo, "scheduled"));
             }
 
-            // Arrival
-            JsonObject arrivalObj = getJsonObjectOrNull(json, "arrival");
-            if (arrivalObj != null) {
-                flight.setAeroportoArrivo(getStringOrNull(arrivalObj, "airport"));
-                flight.setIataArrivo(getStringOrNull(arrivalObj, "iata"));
-                flight.setOrarioArrivo(getStringOrNull(arrivalObj, "actual"));
-                flight.setArrivoProgrammato(getStringOrNull(arrivalObj, "scheduled"));
+            JsonObject aereo = getJsonObjectONull(json, "aircraft");
+            if (aereo != null) {
+                flight.setRegistrazioneAereo(getStringONull(aereo, "registration"));
+                flight.setTipoAereo(getStringONull(aereo, "iata"));
             }
 
-            // Aircraft
-            JsonObject aircraftObj = getJsonObjectOrNull(json, "aircraft");
-            if (aircraftObj != null) {
-                flight.setRegistrazioneAereo(getStringOrNull(aircraftObj, "registration"));
-                flight.setTipoAereo(getStringOrNull(aircraftObj, "iata"));
-            }
+            JsonObject datiLive = getJsonObjectONull(json, "live");
+            if (datiLive != null) {
+                flight.setIcao24(getStringONull(datiLive, "hex"));
+                if (datiLive.get("latitude") != null && !datiLive.get("latitude").isJsonNull())
+                    flight.setLatitudine(datiLive.get("latitude").getAsDouble());
 
-            // Live data
-            JsonObject liveObj = getJsonObjectOrNull(json, "live");
-            if (liveObj != null) {
-                flight.setIcao24(getStringOrNull(liveObj, "hex"));
-                if (liveObj.get("latitude") != null && !liveObj.get("latitude").isJsonNull()) {
-                    flight.setLatitudine(liveObj.get("latitude").getAsDouble());
-                }
-                if (liveObj.get("longitude") != null && !liveObj.get("longitude").isJsonNull()) {
-                    flight.setLongitudine(liveObj.get("longitude").getAsDouble());
-                }
-                if (liveObj.get("altitude") != null && !liveObj.get("altitude").isJsonNull()) {
-                    flight.setAltitudine(liveObj.get("altitude").getAsInt());
-                }
-                if (liveObj.get("speed_horizontal") != null && !liveObj.get("speed_horizontal").isJsonNull()) {
-                    flight.setVelocita(liveObj.get("speed_horizontal").getAsInt());
-                }
-            }
+                if (datiLive.get("longitude") != null && !datiLive.get("longitude").isJsonNull())
+                    flight.setLongitudine(datiLive.get("longitude").getAsDouble());
 
+                if (datiLive.get("altitude") != null && !datiLive.get("altitude").isJsonNull())
+                    flight.setAltitudine(datiLive.get("altitude").getAsInt());
+
+                if (datiLive.get("speed_horizontal") != null && !datiLive.get("speed_horizontal").isJsonNull())
+                    flight.setVelocita(datiLive.get("speed_horizontal").getAsInt());
+            }
             return flight;
         } catch (Exception e) {
             logger.severe(String.format("Errore parsing JSON volo: %s", e.getMessage()));
@@ -127,12 +113,12 @@ public class FlightService {
         }
     }
 
-    private String getStringOrNull(JsonObject obj, String key) {
-        JsonElement element = obj.get(key);
-        return (element != null && !element.isJsonNull()) ? element.getAsString() : null;
+    private String getStringONull(JsonObject obj, String key) {
+        JsonElement elemento = obj.get(key);
+        return (elemento != null && !elemento.isJsonNull()) ? elemento.getAsString() : null; //controlla che non sia null
     }
 
-    private JsonObject getJsonObjectOrNull(JsonObject obj, String key) {
+    private JsonObject getJsonObjectONull(JsonObject obj, String key) {
         JsonElement element = obj.get(key);
         return (element != null && !element.isJsonNull() && element.isJsonObject()) ? element.getAsJsonObject() : null;
     }

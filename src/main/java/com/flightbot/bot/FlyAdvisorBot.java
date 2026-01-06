@@ -220,7 +220,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             case "AWAITING_NOTIFICATION_INTERVAL":
                 try {
                     int minuti = Integer.parseInt(input.trim()); //converte a intero
-                    if (minuti < 1 || minuti > 1440) { // max 24 ore
+                    if (minuti < 1 || minuti > 1440) { //max 24 ore
                         invioMsg(chatId, "Inserisci un valore tra 1 e 1440 minuti (24 ore).");
                         return;
                     }
@@ -253,10 +253,10 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                     gestisciMenu(chatId, azioneMenu);
                 }
                 break;
-            case "view_map": //todo serve?
+            case "view_map":
                 if (parti.length > 1) {
                     String flightNumber = parti[1];
-                    sendFlightMap(chatId, flightNumber);
+                    invioMappaVolo(chatId, flightNumber);
                 }
                 break;
             case "view_aircraft":
@@ -519,7 +519,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
         SendMessage msg = new SendMessage(String.valueOf(chatId), "Vuoi altre informazioni?");
 
         List<InlineKeyboardRow> keyboard = new ArrayList<>();
-        //keyboard.add(new InlineKeyboardRow(creaBottone("🗺️ Mostra Mappa", "view_map:" + numeroVolo)));
+        keyboard.add(new InlineKeyboardRow(creaBottone("🗺️ Mostra Mappa", "view_map:" + numeroVolo)));
         keyboard.add(new InlineKeyboardRow(creaBottone("📍 Traccia Volo", "track_flight:" + numeroVolo)));
         if (volo.getIcao24() != null)
             keyboard.add(new InlineKeyboardRow(creaBottone("✈️ Immagine Aereo", "view_aircraft:" + volo.getIcao24())));
@@ -653,38 +653,65 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void sendFlightMap(long chatId, String flightNumber) {
-        Flight flight = flightService.getInfoVolo(flightNumber);
+    private void invioMappaVolo(long chatId, String numeroVolo) {
+        Flight volo = flightService.getInfoVolo(numeroVolo);
 
-        if (flight == null) {
+        if (volo == null) {
             invioMsg(chatId, "❌ Impossibile generare la mappa.");
             return;
         }
 
-        if (flight.getLatitudine() != null && flight.getLongitudine() != null) {
-            File map = mapService.generateLiveTrackingMap(
-                    flight.getLatitudine(),
-                    flight.getLongitudine(),
-                    flightNumber,
-                    flight.getAltitudine() != null ? flight.getAltitudine() : 0,
-                    flight.getVelocita() != null ? flight.getVelocita() : 0
+        //prova a mostrare la mappa live se la posizione è disponibile
+        if (volo.getLatitudine() != null && volo.getLongitudine() != null) {
+            File mappa = mapService.generaMappaLive(
+                    volo.getLatitudine(),
+                    volo.getLongitudine(),
+                    numeroVolo,
+                    volo.getAltitudine() != null ? volo.getAltitudine() : 0,
+                    volo.getVelocita() != null ? volo.getVelocita() : 0
             );
 
-            if (map != null) {
-                invioFoto(chatId, map, "Posizione volo " + flightNumber);
+            if (mappa != null) {
+                invioFoto(chatId, mappa, "Posizione attuale volo " + numeroVolo);
+                return;
             }
-        } else {
-            invioMsg(chatId, "❌ Posizione non disponibile per questo volo.");
         }
+
+        if (volo.getIataPartenza() != null && volo.getIataArrivo() != null) { //se non c'è la posizione live, mostra la mappa del percorso
+            Airport aeroportoPartenza = airportService.getInfoAeroportoServ(volo.getIataPartenza());
+            Airport aeroportoArrivo = airportService.getInfoAeroportoServ(volo.getIataArrivo());
+
+            if (aeroportoPartenza != null && aeroportoArrivo != null) {
+                Double latPartenza = aeroportoPartenza.getLatitudine();
+                Double lonPartenza = aeroportoPartenza.getLongitudine();
+                Double latArrivo = aeroportoArrivo.getLatitudine();
+                Double lonArrivo = aeroportoArrivo.getLongitudine();
+
+                logger.info(String.format("Coordinate aeroporto - Partenza: %s (%s, %s), Arrivo: %s (%s, %S)", volo.getIataPartenza(), latPartenza, lonPartenza, volo.getIataArrivo(), latArrivo, lonArrivo));
+
+                if (latPartenza != null && lonPartenza != null && latArrivo != null && lonArrivo != null) {
+                    File mappaPerc = mapService.generaMappaVolo(latPartenza, lonPartenza, latArrivo, lonArrivo);
+
+                    if (mappaPerc != null) {
+                        invioFoto(chatId, mappaPerc, "Tratta volo " + numeroVolo + " da " + volo.getIataPartenza() + " a " + volo.getIataArrivo());
+                        return;
+                    }
+                } else {
+                    logger.severe(String.format("Coordinate assenti per aeroporto %s o %s", volo.getIataPartenza(), volo.getIataArrivo()));
+                }
+            } else {
+                logger.severe(String.format("Impossibile ricevere info per aeroporto %s o %s", volo.getIataPartenza(), volo.getIataArrivo()));
+            }
+        }
+        invioMsg(chatId, "❌ Impossibile generare la mappa per questo volo.");
     }
 
     private void inviaFotoAereo(long chatId, String IdAereo) {
         File immagine = imageService.scaricaImmagineAereo(IdAereo);
-        if (immagine != null) {
+        if (immagine != null)
             invioFoto(chatId, immagine, "Aeromobile " + IdAereo);
-        } else {
+        else
             invioMsg(chatId, "❌ Immagine non disponibile.");
-        }
     }
 
     private void invioMsg(long chatId, String testo) {

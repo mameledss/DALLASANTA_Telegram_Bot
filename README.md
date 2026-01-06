@@ -11,6 +11,7 @@ FlyAdvisorBot è un bot Telegram per la gestione e il monitoraggio dei voli. For
 - **🔔 Notifiche Personalizzate**: Avvisi programmati per i voli tracciati
 - **🧳 Gestione Bagagli**: Informazioni sulle dimensioni e i pesi dei bagagli per compagnia
 - **🖼️ Immagini compagnie e aerei**: Loghi delle compagnie aeree e foto degli aerei cercati
+- **🗺️ Mappe Interattive**: Visualizzazione tratte di volo e tracking live su mappe reali
 - **💾 Database Locale**: Salvataggio dei voli tracciati e preferenze utente
 - **📝 Logging**: logging di errori e azioni utente varie
 
@@ -23,6 +24,7 @@ Il bot integra molteplici API esterne per fornire i dati:
 - **🏢 AeroDataBox API**: Per dati sugli aeroporti (posizioni, codici, informazioni generali)
 - **🌤️ OpenWeatherMap API**: Per previsioni meteorologiche
 - **🎫 Amadeus API**: Per ricerca e prenotazione offerte di volo
+- **🗺️ OpenStreetMap**: Per generazione mappe interattive con piastrelle geografiche
 - **🖼️ Kiwi.com Images**: Per loghi delle compagnie aeree
 - **🌐 Web Scraping (Jsoup)**: Per informazioni sulle restrizioni bagagli da siti web
 - **📸 Plane Spotters**: Per foto degli aerei
@@ -50,7 +52,7 @@ src/main/java/com/flightbot/
     ├── FlightService.java          # Servizio info voli (AviationStack)
     ├── ImageService.java           # Servizio immagini e loghi
     ├── LuggageService.java         # Servizio info bagagli (web scraping)
-    ├── MapService.java             # Servizio generazione mappe
+    ├── MapService.java             # Servizio generazione mappe (OpenStreetMap)
     ├── NotificationScheduler.java  # Servizio notifiche (Quartz)
     └── WeatherService.java         # Servizio meteo (OpenWeatherMap)
 ```
@@ -91,6 +93,7 @@ Il bot utilizza un sistema di stati per gestire gli input multi-step:
 #### Callback Query System
 Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 - `menu:FLIGHT` - Menu volo
+- `view_map:NUMERO` - Visualizza mappa del volo (tratta o posizione live)
 - `view_aircraft:ID` - Visualizza immagine aereo
 - `track_flight:NUMERO` - Traccia volo specifico
 - `luggage:COMPAGNIA` - Info bagagli compagnia
@@ -146,6 +149,11 @@ Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 - Numero adulti configurabile
 - Visualizzazione offerte
 
+### 🗺️ Servizio Mappe Interattive
+- Visualizzazione della rotta completa tra aeroporti di partenza e arrivo
+- Monitoraggio posizione corrente dell'aereo su mappa geografica
+- Dettagli volo (numero, altitudine, velocità) direttamente sulla mappa
+
 ### 💾 Gestione Database
 - Database SQLite locale (`data/flyadvisor.db`)
 - Tabelle per voli tracciati, preferenze utente
@@ -174,6 +182,8 @@ Contiene:
 - Chiavi API per tutti i servizi
 - Configurazione database
 - Impostazioni scheduler
+
+⚠️IMPORTANTE: Per il corretto funzionamento del bot, rinominare il file confPUBBLICO.properties in conf.properties e compilarlo con le proprie credenziali API Key.
 
 ## 👤 Autore
 [![mameledss](https://github.com/mameledss.png?size=30)](https://github.com/mameledss)

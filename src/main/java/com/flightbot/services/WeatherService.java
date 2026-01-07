@@ -11,17 +11,19 @@ import okhttp3.Request;
 import okhttp3.Response;
 import java.util.logging.Logger;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class WeatherService {
     private static final Logger logger = Logger.getLogger(WeatherService.class.getName());
     private final OkHttpClient client = new OkHttpClient();
     private final String apiKey = ConfigLoader.getOpenWeatherApiKey();
 
-    public Weather getMeteo(String city) {
+    public Weather getMeteo(String citta) {
         try {
             String url = String.format(
                     "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric&lang=it",
-                    city, apiKey
+                    citta, apiKey
             );
 
             Request request = new Request.Builder()
@@ -37,7 +39,12 @@ public class WeatherService {
                 String jsonResponse = response.body().string();
                 JsonObject jsonObject = JsonParser.parseString(jsonResponse).getAsJsonObject();
 
-                return daJsonAWeather(jsonObject);
+                Weather meteo = daJsonAWeather(jsonObject);
+                if (meteo != null) {
+                    List<Weather> previsioni = getPrevisioni(citta);
+                    meteo.setPrevisioni(previsioni);
+                }
+                return meteo;
             }
         } catch (IOException e) {
             logger.severe(String.format("Errore ottenimento meteo: %s", e.getMessage()));
@@ -73,6 +80,62 @@ public class WeatherService {
         }
     }
 
+    private List<Weather> getPrevisioni(String citta) {
+        try {
+            String url = String.format(
+                    "https://api.openweathermap.org/data/2.5/forecast?q=%s&appid=%s&units=metric&lang=it",
+                    citta, apiKey
+            );
+
+            Request request = new Request.Builder()
+                    .url(url)
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    logger.severe(String.format("Errore ottenimento previsioni: %d", response.code()));
+                    return null;
+                }
+
+                String jsonResponse = response.body().string();
+                JsonObject jsonObject = JsonParser.parseString(jsonResponse).getAsJsonObject();
+
+                return daJsonAPrevisioni(jsonObject);
+            }
+        } catch (IOException e) {
+            logger.severe(String.format("Errore ottenimento previsioni: %s", e.getMessage()));
+            return null;
+        }
+    }
+
+    private List<Weather> getPrevisioniDaCoord(double lat, double lon) {
+        try {
+            String url = String.format(
+                    "https://api.openweathermap.org/data/2.5/forecast?lat=%f&lon=%f&appid=%s&units=metric&lang=it",
+                    lat, lon, apiKey
+            );
+
+            Request request = new Request.Builder()
+                    .url(url)
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    logger.severe(String.format("Errore ottenimento previsioni da coordinate: %d", response.code()));
+                    return null;
+                }
+
+                String jsonResponse = response.body().string();
+                JsonObject jsonObject = JsonParser.parseString(jsonResponse).getAsJsonObject();
+
+                return daJsonAPrevisioni(jsonObject);
+            }
+        } catch (IOException e) {
+            logger.severe(String.format("Errore ottenimento previsioni da coordinate: %s", e.getMessage()));
+            return null;
+        }
+    }
+
     private Weather daJsonAWeather(JsonObject json) {
         try {
             Weather meteo = new Weather();
@@ -80,6 +143,10 @@ public class WeatherService {
             JsonElement nome = json.get("name");
             if (nome != null && !nome.isJsonNull())
                 meteo.setCitta(nome.getAsString());
+
+            JsonElement dtTxt = json.get("dt_txt"); //data in formato testuale
+            if (dtTxt != null && !dtTxt.isJsonNull())
+                meteo.setData(dtTxt.getAsString());
 
             JsonArray arrayMeteo = json.getAsJsonArray("weather");
             if (arrayMeteo != null && !arrayMeteo.isEmpty()) {
@@ -97,7 +164,7 @@ public class WeatherService {
                 }
             }
 
-            JsonObject main = getJsonObjectONull(json, "main");
+            JsonObject main = getJsonObjectONull(json, "main"); //dati principali meteorologici
             if (main != null) {
                 meteo.setTemperatura(main.get("temp").getAsDouble());
                 meteo.setPercepita(main.get("feels_like").getAsDouble());
@@ -126,5 +193,30 @@ public class WeatherService {
     private JsonObject getJsonObjectONull(JsonObject obj, String key) {
         JsonElement elemento = obj.get(key);
         return (elemento != null && !elemento.isJsonNull() && elemento.isJsonObject()) ? elemento.getAsJsonObject() : null;
+    }
+
+    private List<Weather> daJsonAPrevisioni(JsonObject json) {
+        List<Weather> previsioni = new ArrayList<>();
+        try {
+            JsonArray lista = json.getAsJsonArray("list"); //lista di previsioni ogni 3 ore
+            if (lista != null) {
+                for (JsonElement elemento : lista) {
+                    if (elemento.isJsonObject()) {
+                        JsonObject item = elemento.getAsJsonObject();
+                        String dtTxt = item.get("dt_txt").getAsString();
+                        //prende solo previsioni delle 12:00 per averne una per giorno
+                        if (dtTxt.contains("12:00:00")) {
+                            Weather meteo = daJsonAWeather(item);
+                            if (meteo != null) {
+                                previsioni.add(meteo);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.severe(String.format("Errore parsing forecast JSON: %s", e.getMessage()));
+        }
+        return previsioni;
     }
 }

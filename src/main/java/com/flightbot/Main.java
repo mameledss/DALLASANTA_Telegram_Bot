@@ -13,22 +13,23 @@ public class Main {
     public static void main(String[] args) {
         logger.info("Avvio FlyAdvisor Bot...");
 
-        String botToken = ConfigLoader.getTelegramBotToken();
-        TelegramBotsLongPollingApplication botsApplication = null;
-        FlyAdvisorBot bot = null;
+        String botToken = ConfigLoader.getTelegramBotToken(); //ottiene il token dal file di conf
+        //long polling = bot chiede continuamente a Telegram se ci sono nuovi messaggi
+        TelegramBotsLongPollingApplication botsApplication = null; //inizializza il gestore dei bot
+        FlyAdvisorBot bot = null; //inizializza il bot
 
         try {
             botsApplication = new TelegramBotsLongPollingApplication();
             bot = new FlyAdvisorBot();
-            botsApplication.registerBot(botToken, bot);
+            botsApplication.registerBot(botToken, bot); //registra il bot presso telegram
 
             logger.info("FlyAdvisor Bot avviato correttamente!");
             logger.info(String.format("Bot username: %s", ConfigLoader.getTelegramBotUsername()));
-
+            //variabili "final" per consentire la funzione lambda di chiusura
             FlyAdvisorBot botFinale = bot;
             TelegramBotsLongPollingApplication botsAppFinale = botsApplication;
 
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> { //registra un hook eseguito quando il programma sta per terminare
                 logger.info("Terminando FlyAdvisor Bot...");
                 botFinale.chiusura();
                 try {
@@ -40,18 +41,16 @@ public class Main {
             }));
 
             logger.info("Bot in esecuzione. Premi Ctrl+C per terminare.");
-            Thread.currentThread().join(); //thread in esecuzione
+            Thread.currentThread().join(); //mantiene thread in esecuzione continuamente
 
         } catch (TelegramApiException e) {
             logger.severe(String.format("Errore nell'avviare Telegram Bot API: %s", e.getMessage()));
-            e.printStackTrace();
             System.exit(-1);
         } catch (SchedulerException e) {
             logger.severe(String.format("Errore nell'avviare lo scheduler: %s", e.getMessage()));
-            e.printStackTrace();
             System.exit(-1);
         } catch (InterruptedException e) {
-            logger.info("Bot interrotto dall'utente.");
+            logger.info("Bot interrotto dall'utente");
             if (bot != null) bot.chiusura();
             if (botsApplication != null) {
                 try {
@@ -62,7 +61,6 @@ public class Main {
             }
         } catch (Exception e) {
             logger.severe(String.format("Errore inaspettato durante l'avvio: %s", e.getMessage()));
-            e.printStackTrace();
             System.exit(-1);
         }
     }

@@ -1,9 +1,7 @@
 package com.flightbot.database;
 
 import com.flightbot.config.ConfigLoader;
-
 import java.util.logging.Logger;
-
 import java.sql.*;
 
 public class DatabaseManager {

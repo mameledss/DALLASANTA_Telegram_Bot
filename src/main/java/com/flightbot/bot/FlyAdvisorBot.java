@@ -74,7 +74,6 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             if (update.hasMessage()) { //se l'update contiene un messaggio
                 Message msg = update.getMessage(); //estrae il messaggio
                 long chatId = msg.getChatId(); //estrae l'id del chat
-                String username = msg.getFrom().getUserName();
                 if (msg.hasText())  //se il messaggio contiene testo
                     gestisciMessaggioTesto(chatId, msg.getText()); //chiama il metodo per gestire il testo
             } else if (update.hasCallbackQuery()) { //gestione click pulsante inline nella chat

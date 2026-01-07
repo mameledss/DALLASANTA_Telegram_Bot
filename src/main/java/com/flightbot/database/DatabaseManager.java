@@ -7,7 +7,7 @@ import java.sql.*;
 public class DatabaseManager {
     private static final Logger logger = Logger.getLogger(DatabaseManager.class.getName());
     private static DatabaseManager instance;
-    private Connection connection;
+    private final Connection connection;
 
     private DatabaseManager() {
         try {
@@ -93,10 +93,6 @@ public class DatabaseManager {
         return connection.prepareStatement(sql);
     }
 
-    public Connection getConnection() {
-        return connection;
-    }
-
     public void aggiungiVoloTracciato(long chatId, String numeroVolo) throws SQLException {
         if (!isConnessioneValida()) {
             logger.severe("Connessione al database non valida");
@@ -163,7 +159,7 @@ public class DatabaseManager {
 
     //metodi per gestire le preferenze utente
     public void setPreferenzeUtente(long chatId, boolean notificheAbilitate, int intervalloMinutiNotifiche) throws SQLException {
-        if (!isConnessioneValida()) {;
+        if (!isConnessioneValida()) {
             logger.severe("Connessione al database non valida");
             return;
         }
@@ -213,17 +209,5 @@ public class DatabaseManager {
             }
         }
         return 15; //default a 15 minuti se non ci sono preferenze salvate
-    }
-
-    public ResultSet getUserPreferences(long chatId) throws SQLException {
-        if (!isConnessioneValida()) {
-            logger.severe("Connessione al database non valida");
-            return null;
-        }
-        String sql = "SELECT * FROM user_preferences WHERE chat_id = ?";
-        try (PreparedStatement stmt = prepareStatement(sql)) {
-            stmt.setLong(1, chatId);
-            return stmt.executeQuery();
-        }
     }
 }

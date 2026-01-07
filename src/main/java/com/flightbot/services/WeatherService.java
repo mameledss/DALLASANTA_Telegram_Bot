@@ -108,34 +108,6 @@ public class WeatherService {
         }
     }
 
-    private List<Weather> getPrevisioniDaCoord(double lat, double lon) {
-        try {
-            String url = String.format(
-                    "https://api.openweathermap.org/data/2.5/forecast?lat=%f&lon=%f&appid=%s&units=metric&lang=it",
-                    lat, lon, apiKey
-            );
-
-            Request request = new Request.Builder()
-                    .url(url)
-                    .build();
-
-            try (Response response = client.newCall(request).execute()) {
-                if (!response.isSuccessful()) {
-                    logger.severe(String.format("Errore ottenimento previsioni da coordinate: %d", response.code()));
-                    return null;
-                }
-
-                String jsonResponse = response.body().string();
-                JsonObject jsonObject = JsonParser.parseString(jsonResponse).getAsJsonObject();
-
-                return daJsonAPrevisioni(jsonObject);
-            }
-        } catch (IOException e) {
-            logger.severe(String.format("Errore ottenimento previsioni da coordinate: %s", e.getMessage()));
-            return null;
-        }
-    }
-
     private Weather daJsonAWeather(JsonObject json) {
         try {
             Weather meteo = new Weather();

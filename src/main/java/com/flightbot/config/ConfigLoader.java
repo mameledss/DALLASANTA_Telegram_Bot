@@ -78,10 +78,4 @@ public class ConfigLoader { //pattern Singleton
     public static String getDatabaseUrl() {
         return get("database.url");
     }
-    public static String getDatabaseUsername() {
-        return get("database.username");
-    }
-    public static String getDatabasePassword() {
-        return get("database.password", "");
-    }
 }

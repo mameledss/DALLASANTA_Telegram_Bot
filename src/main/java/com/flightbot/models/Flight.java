@@ -168,9 +168,7 @@ public class Flight {
         this.speed = velocita;
     }
 
-    public String getTerminal() {
-        return terminal;
-    }
+    public String getTerminal() { return terminal; }
     public void setTerminal(String terminal) { this.terminal = terminal; }
 
     public String getGate() {

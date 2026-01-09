@@ -17,11 +17,11 @@ public class FlightService {
     private final OkHttpClient client = new OkHttpClient();
     private final String apiKey = ConfigLoader.getAviationStackApiKey();
 
-    public Flight getInfoVolo(String flightNumber) {
+    public Flight getInfoVolo(String numeroVolo) {
         try {
             String url = String.format(
                     "http://api.aviationstack.com/v1/flights?access_key=%s&flight_iata=%s",
-                    apiKey, flightNumber
+                    apiKey, numeroVolo
             );
 
             Request request = new Request.Builder()
@@ -63,12 +63,19 @@ public class FlightService {
                 flight.setCompagnia(getStringONull(compagnia, "name"));
 
             flight.setStato(getStringONull(json, "flight_status"));
+            flight.setDataVolo(getStringONull(json, "flight_date"));
 
             JsonObject partenza = getJsonObjectONull(json, "departure");
             if (partenza != null) {
                 flight.setAeroportoPartenza(getStringONull(partenza, "airport"));
                 flight.setIataPartenza(getStringONull(partenza, "iata"));
-                flight.setOrarioPartenza(getStringONull(partenza, "actual"));
+                flight.setIcaoPartenza(getStringONull(partenza, "icao"));
+                //se il volo non è ancora partito, usa l'orario scheduled come fallback
+                String orarioPartenza = getStringONull(partenza, "actual");
+                if (orarioPartenza == null) {
+                    orarioPartenza = getStringONull(partenza, "scheduled");
+                }
+                flight.setOrarioPartenza(orarioPartenza);
                 flight.setPartenzaProgrammata(getStringONull(partenza, "scheduled"));
                 flight.setTerminal(getStringONull(partenza, "terminal"));
                 flight.setGate(getStringONull(partenza, "gate"));
@@ -81,8 +88,19 @@ public class FlightService {
             if (arrivo != null) {
                 flight.setAeroportoArrivo(getStringONull(arrivo, "airport"));
                 flight.setIataArrivo(getStringONull(arrivo, "iata"));
-                flight.setOrarioArrivo(getStringONull(arrivo, "actual"));
+                flight.setIcaoArrivo(getStringONull(arrivo, "icao"));
+                //se il volo non è ancora arrivato, usa l'orario scheduled come fallback
+                String orarioArrivo = getStringONull(arrivo, "actual");
+                if (orarioArrivo == null) {
+                    orarioArrivo = getStringONull(arrivo, "scheduled");
+                }
+                flight.setOrarioArrivo(orarioArrivo);
                 flight.setArrivoProgrammato(getStringONull(arrivo, "scheduled"));
+                flight.setTerminalArrivo(getStringONull(arrivo, "terminal"));
+                flight.setRitiroBagagli(getStringONull(arrivo, "baggage"));
+
+                if (arrivo.get("delay") != null && !arrivo.get("delay").isJsonNull())
+                    flight.setRitardoArrivo(arrivo.get("delay").getAsInt());
             }
 
             JsonObject aereo = getJsonObjectONull(json, "aircraft");

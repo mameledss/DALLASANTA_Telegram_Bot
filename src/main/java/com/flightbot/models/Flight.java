@@ -23,6 +23,12 @@ public class Flight {
     private Integer speed;
     private String terminal;
     private String gate;
+    private String flightDate;
+    private String departureIcao;
+    private String arrivalIcao;
+    private String arrivalTerminal;
+    private String baggageClaim;
+    private Integer arrivalDelay;
 
     public Flight() {}
 
@@ -174,31 +180,91 @@ public class Flight {
         this.gate = gate;
     }
 
+    public String getDataVolo() {
+        return flightDate;
+    }
+    public void setDataVolo(String dataVolo) {
+        this.flightDate = dataVolo;
+    }
+
+    public String getIcaoPartenza() {
+        return departureIcao;
+    }
+    public void setIcaoPartenza(String icaoPartenza) {
+        this.departureIcao = icaoPartenza;
+    }
+
+    public String getIcaoArrivo() {
+        return arrivalIcao;
+    }
+    public void setIcaoArrivo(String icaoArrivo) {
+        this.arrivalIcao = icaoArrivo;
+    }
+
+    public String getTerminalArrivo() {
+        return arrivalTerminal;
+    }
+    public void setTerminalArrivo(String terminalArrivo) {
+        this.arrivalTerminal = terminalArrivo;
+    }
+
+    public String getRitiroBagagli() {
+        return baggageClaim;
+    }
+    public void setRitiroBagagli(String ritiroBagagli) {
+        this.baggageClaim = ritiroBagagli;
+    }
+
+    public Integer getRitardoArrivo() {
+        return arrivalDelay;
+    }
+    public void setRitardoArrivo(Integer ritardoArrivo) {
+        this.arrivalDelay = ritardoArrivo;
+    }
+
     @Override
     public String toString() {
         StringBuilder info = new StringBuilder();
         info.append("✈️ Volo: ").append(flightNumber != null ? flightNumber : "N/A").append("\n");
         info.append("🏢 Compagnia: ").append(airline != null ? airline : "N/A").append("\n");
-        info.append("📊 Stato: ").append(status != null ? status : "N/A").append("\n\n");
+        info.append("📊 Stato: ").append(status != null ? status : "N/A").append("\n");
+        if (flightDate != null)
+            info.append("📅 Data: ").append(flightDate).append("\n");
+        info.append("\n");
 
         info.append("🛫 Partenza:\n");
-        info.append("  Aeroporto: ").append(departureAirport != null ? departureAirport : "N/A").append("\n");
-        info.append("  Orario: ").append(departureTime != null ? formattaDataOra(departureTime) : "N/A").append("\n");
+        info.append("-🏢 Aeroporto: ").append(departureAirport != null ? departureAirport : "N/A");
+        if (departureIata != null)
+            info.append(" (").append(departureIata).append(")");
+        info.append("\n");
+        if (departureIcao != null)
+            info.append("-📑 ICAO: ").append(departureIcao).append("\n");
+        info.append("-🕝 Orario: ").append(departureTime != null ? formattaDataOra(departureTime) : "N/A").append("\n");
         if (gate != null)
-            info.append("  Gate: ").append(gate).append("\n");
+            info.append("-🛂 Gate: ").append(gate).append("\n");
+        if (delay != null && delay > 0)
+            info.append("-⚠️ Ritardo Partenza: ").append(delay).append(" minuti\n");
 
         info.append("\n🛬 Arrivo:\n");
-        info.append("  Aeroporto: ").append(arrivalAirport != null ? arrivalAirport : "N/A").append("\n");
-        info.append("  Orario: ").append(arrivalTime != null ? formattaDataOra(arrivalTime) : "N/A").append("\n");
-
-        if (delay != null && delay > 0)
-            info.append("\n⚠️ Ritardo: ").append(delay).append(" minuti\n");
+        info.append("-🏢 Aeroporto: ").append(arrivalAirport != null ? arrivalAirport : "N/A");
+        if (arrivalIata != null)
+            info.append(" (").append(arrivalIata).append(")");
+        info.append("\n");
+        if (arrivalIcao != null)
+            info.append("-📑 ICAO: ").append(arrivalIcao).append("\n");
+        info.append("-🕝 Orario: ").append(arrivalTime != null ? formattaDataOra(arrivalTime) : "N/A").append("\n");
+        if (arrivalTerminal != null)
+            info.append("-🏢 Terminal: ").append(arrivalTerminal).append("\n");
+        if (baggageClaim != null)
+            info.append("-🛄 Bagagli: ").append(baggageClaim).append("\n");
+        if (arrivalDelay != null && arrivalDelay > 0)
+            info.append("-⚠️ Ritardo Arrivo: ").append(arrivalDelay).append(" minuti\n");
 
         if (aircraftType != null)
             info.append("\n✈️ Aeromobile: ").append(aircraftType).append("\n");
 
         if (icao24 != null) //ICAO24->id 24 bit per aerei
-            info.append("📡 ICAO24: ").append(icao24).append("\n");
+            info.append("\n📡 ICAO24: ").append(icao24).append("\n");
 
         return info.toString();
     }

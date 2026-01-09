@@ -201,7 +201,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 break;
             case "AWAITING_TICKET_FROM":
                 contesto.put("from", input.toUpperCase());
-                invioMsg(chatId, "🗺️ Inserisci destinazione (codice IATA):");
+                invioMsg(chatId, "🛬 Inserisci destinazione (codice IATA):");
                 userStates.put(chatId, "AWAITING_TICKET_TO");
                 break;
             case "AWAITING_TICKET_TO":

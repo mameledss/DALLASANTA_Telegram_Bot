@@ -96,9 +96,9 @@ public class Airport {
             info.append("🌐 Sito web: ").append(website).append("\n");
         if (googleMaps != null)
             info.append("🗺️ Google Maps: ").append(googleMaps).append("\n");
-        if (latitude != null && longitude != null) {
-            info.append("📍 Coordinate: ").append(latitude).append(", ").append(longitude).append("\n");
-        }
+        if (latitude != null && longitude != null)
+            info.append("📍 Coordinate: ").append(latitude).append(", ").append(longitude).append("\n\n");
+
         return info.toString();
     }
 }

@@ -146,10 +146,11 @@ public class DatabaseManager {
             return null;
         }
         String sql = "SELECT * FROM tracked_flights WHERE chat_id = ? AND active = TRUE";
-        try (PreparedStatement stmt = prepareStatement(sql)) {
-            stmt.setLong(1, chatId);
-            return stmt.executeQuery();
-        }
+        PreparedStatement stmt = prepareStatement(sql);
+        stmt.setLong(1, chatId);
+        ResultSet rs = stmt.executeQuery();
+        //il PreparedStatement non viene chiuso qui per permettere la lettura del ResultSet
+        return rs;
     }
 
     public void scheduleNotification(long chatId, String numeroVolo, Timestamp tempoNotifica, String msg) throws SQLException {

@@ -761,10 +761,13 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             StringBuilder risultato = new StringBuilder("📋 I tuoi voli tracciati:\n\n");
             boolean haVoli = false;
 
-            while (rs.next()) {
-                haVoli = true;
-                String numeroVolo = rs.getString("flight_number");
-                risultato.append("✈️ ").append(numeroVolo).append("\n");
+            if (rs != null) {
+                while (rs.next()) {
+                    haVoli = true;
+                    String numeroVolo = rs.getString("flight_number");
+                    risultato.append("✈️ ").append(numeroVolo).append("\n");
+                }
+                rs.close(); //chiude il ResultSet
             }
             if (!haVoli)
                 risultato.append("Nessun volo tracciato. Usa /track <numero> per aggiungerne uno.");

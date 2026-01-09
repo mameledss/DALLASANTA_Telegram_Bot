@@ -19,9 +19,7 @@ public class UserProfile {
         this.lastSeen = ultimoAccesso;
     }
 
-    public long getChatId() {
-        return chatId;
-    }
+    public long getChatId() { return chatId; }
 
     public String getUsername() {
         return username;

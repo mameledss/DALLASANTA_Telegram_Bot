@@ -14,6 +14,8 @@ FlyAdvisorBot è un bot Telegram per la gestione e il monitoraggio dei voli. For
 - **🗺️ Mappe Interattive**: Visualizzazione tratte di volo e tracking live su mappe reali
 - **💾 Database Locale**: Salvataggio dei voli tracciati e preferenze utente
 - **📝 Logging**: logging di errori e azioni utente varie
+- **🤳 OCR Tabelloni Aeroporto**: Estrazione automatica di voli e orari da foto dei tabelloni
+- **👤 Profilo Utente & Statistiche**: Riepilogo utilizzo, comandi più usati e stato notifiche
 
 ## 🔗 API Utilizzate
 
@@ -28,6 +30,7 @@ Il bot integra molteplici API esterne per fornire i dati:
 - **🖼️ Kiwi.com Images**: Per loghi delle compagnie aeree
 - **🌐 Web Scraping (Jsoup)**: Per informazioni sulle restrizioni bagagli da siti web
 - **📸 Plane Spotters**: Per foto degli aerei
+- **🧠 Tesseract OCR (Tess4J)**: Per riconoscimento del testo dai tabelloni aeroportuali
 
 ## Architettura del Progetto
 
@@ -112,6 +115,7 @@ Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 - `/start` - Messaggio di benvenuto e introduzione
 - `/help` - Lista completa dei comandi disponibili
 - `/menu` - Menu interattivo con pulsanti
+- `/cancel` - Annulla l'operazione guidata in corso
 
 ### ✈️ Funzionalità Voli
 - `/track [numero_volo]` - Traccia un volo specifico
@@ -121,14 +125,16 @@ Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 ### ℹ️ Informazioni
 - `/airport [codice_IATA]` - Informazioni su un aeroporto
 - `/weather [città]` - Previsioni meteorologiche
+- `/info` - Mostra profilo utente e statistiche di utilizzo
 
 ### 🎫 Ricerca e Prenotazione
 - `/tickets` - Ricerca offerte di volo (guidata)
 - `/notify [numero_volo]` - Imposta notifica per un volo
 
-### 🛠️ Utilità
+### 🛠️ Utility
 - `/luggage` - Informazioni sulle restrizioni bagagli
-- `/settings` - Gestione preferenze utente
+- `/settings` (alias `/preferences`) - Gestione preferenze utente
+- `/ocr` - Estrai automaticamente i voli da una foto del tabellone
 
 ## 🔧 Funzionalità Dettagliate
 
@@ -143,6 +149,8 @@ Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 - Intervallo configurabile (1-1440 minuti)
 - Attivazione/disattivazione notifiche per utente
 - Utilizzo Quartz Scheduler per pianificazione
+    - Promemoria singoli con `/notify` (una volta)
+    - Controlli ricorrenti con `/track` (aggiornamenti periodici)
 
 ### 🎫 Ricerca Biglietti
 - Ricerca per data, origine, destinazione
@@ -153,6 +161,10 @@ Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 - Visualizzazione della rotta completa tra aeroporti di partenza e arrivo
 - Monitoraggio posizione corrente dell'aereo su mappa geografica
 - Dettagli volo (numero, altitudine, velocità) direttamente sulla mappa
+
+### 📷 OCR Tabelloni Aeroporto
+- Estrae automaticamente coppie volo/orario da foto di tabelloni (arrivi/partenze)
+- Dopo l’estrazione puoi impostare rapidamente una notifica per uno dei voli riconosciuti
 
 ### 💾 Gestione Database
 - Database SQLite locale (`data/flyadvisor.db`)
@@ -169,6 +181,12 @@ Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 **user_preferences** - Tabella per le preferenze personali degli utenti
 - Colonne: chat_id, language, notifications_enabled, notification_interval_minutes, created_at, updated_at
 
+**user_profiles** - Profili utente e metadati di attività
+- Colonne: chat_id, username, first_name, last_name, created_at, last_seen
+
+**command_usage** - Statistiche d’uso dei comandi per utente
+- Colonne: chat_id, command, usage_count
+
 ### 🎨 Interfaccia Utente
 - Tastiere inline per navigazione intuitiva
 - Formattazione messaggi con emoji
@@ -184,6 +202,10 @@ Contiene:
 - Impostazioni scheduler
 
 ⚠️IMPORTANTE: Per il corretto funzionamento del bot, rinominare il file confPUBBLICO.properties in conf.properties e compilarlo con le proprie credenziali API Key.
+
+### 📸 OCR (Tesseract)
+- I dati linguistici necessari (`tessdata/eng.traineddata`) sono già inclusi in `src/main/resources/tessdata`
+- Non sono richiesti passaggi extra: il bot usa Tess4J e punta automaticamente alla cartella `tessdata`
 
 ## 👤 Autore
 [![mameledss](https://github.com/mameledss.png?size=30)](https://github.com/mameledss)

@@ -1,6 +1,7 @@
 package com.flightbot.database;
 
 import com.flightbot.config.ConfigLoader;
+import com.flightbot.models.UserProfile;
 import java.util.logging.Logger;
 import java.sql.*;
 
@@ -12,9 +13,7 @@ public class DatabaseManager {
     private DatabaseManager() {
         try {
             Class.forName("org.sqlite.JDBC");
-            this.connection = DriverManager.getConnection(
-                    ConfigLoader.getDatabaseUrl()
-            );
+            this.connection = DriverManager.getConnection(ConfigLoader.getDatabaseUrl());
             inizializzaTabelle();
             logger.info("Database inizializzato correttamente");
         } catch (Exception e) {
@@ -81,6 +80,28 @@ public class DatabaseManager {
         } catch (SQLException e) {
             //la colonna potrebbe già esistere, ignora l'errore
         }
+
+        //profilo utente di base
+        eseguiUpdate("""
+            CREATE TABLE IF NOT EXISTS user_profiles (
+                chat_id INTEGER PRIMARY KEY,
+                username TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """);
+
+        //conteggio utilizzo comandi
+        eseguiUpdate("""
+            CREATE TABLE IF NOT EXISTS command_usage (
+                chat_id INTEGER NOT NULL,
+                command TEXT NOT NULL,
+                usage_count INTEGER DEFAULT 1,
+                PRIMARY KEY (chat_id, command)
+            )
+        """);
     }
 
     public void eseguiUpdate(String sql) throws SQLException {
@@ -209,5 +230,124 @@ public class DatabaseManager {
             }
         }
         return 15; //default a 15 minuti se non ci sono preferenze salvate
+    }
+
+    public void aggiornaProfiloUtente(long chatId, String username, String nome, String cognome) throws SQLException {
+        if (!isConnessioneValida()) {
+            logger.severe("Connessione al database non valida");
+            return;
+        }
+        String sql = """
+            INSERT INTO user_profiles (chat_id, username, first_name, last_name, last_seen)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(chat_id) DO UPDATE SET
+                username = COALESCE(excluded.username, user_profiles.username),
+                first_name = COALESCE(excluded.first_name, user_profiles.first_name),
+                last_name = COALESCE(excluded.last_name, user_profiles.last_name),
+                last_seen = CURRENT_TIMESTAMP
+        """; //aggiorna il campo con nuovo valore fornito (excluded), ma se il nuovo valore è NULL, mantiene quello vecchio già presente in tabella (user_profiles)".
+        try (PreparedStatement stmt = prepareStatement(sql)) {
+            stmt.setLong(1, chatId);
+            stmt.setString(2, username);
+            stmt.setString(3, nome);
+            stmt.setString(4, cognome);
+            stmt.executeUpdate();
+        }
+    }
+
+    public UserProfile getProfiloUtente(long chatId) throws SQLException {
+        if (!isConnessioneValida()) {
+            logger.severe("Connessione al database non valida");
+            return null;
+        }
+        String sql = "SELECT chat_id, username, first_name, last_name, created_at, last_seen FROM user_profiles WHERE chat_id = ?";
+        try (PreparedStatement stmt = prepareStatement(sql)) {
+            stmt.setLong(1, chatId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return new UserProfile(
+                            rs.getLong("chat_id"),
+                            rs.getString("username"),
+                            rs.getString("first_name"),
+                            rs.getString("last_name"),
+                            rs.getTimestamp("created_at"),
+                            rs.getTimestamp("last_seen")
+                    );
+                }
+            }
+        }
+        return null;
+    }
+
+    public void incrementaUtilizzoComando(long chatId, String comando) throws SQLException {
+        if (!isConnessioneValida()) {
+            logger.severe("Connessione al database non valida");
+            return;
+        }
+        String sql = """
+            INSERT INTO command_usage (chat_id, command, usage_count)
+            VALUES (?, ?, 1)
+            ON CONFLICT(chat_id, command) DO UPDATE SET
+                usage_count = command_usage.usage_count + 1
+        """;
+        try (PreparedStatement stmt = prepareStatement(sql)) {
+            stmt.setLong(1, chatId);
+            stmt.setString(2, comando);
+            stmt.executeUpdate();
+        }
+    }
+
+    public int getTotaleComandi(long chatId) throws SQLException {
+        if (!isConnessioneValida()) {
+            logger.severe("Connessione al database non valida");
+            return 0;
+        }
+        String sql = "SELECT COALESCE(SUM(usage_count), 0) AS total FROM command_usage WHERE chat_id = ?"; //0 se null
+        try (PreparedStatement stmt = prepareStatement(sql)) {
+            stmt.setLong(1, chatId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next())
+                    return rs.getInt("total");
+            }
+        }
+        return 0;
+    }
+
+    public String getComandoPiuUsato(long chatId) throws SQLException {
+        if (!isConnessioneValida()) {
+            logger.severe("Connessione al database non valida");
+            return null;
+        }
+        String sql = """
+            SELECT command
+            FROM command_usage
+            WHERE chat_id = ?
+            ORDER BY usage_count DESC
+            LIMIT 1
+        """;
+        try (PreparedStatement stmt = prepareStatement(sql)) {
+            stmt.setLong(1, chatId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next())
+                    return rs.getString("command");
+            }
+        }
+        return null;
+    }
+
+    public int getConteggioVoliTracciati(long chatId) throws SQLException {
+        if (!isConnessioneValida()) {
+            logger.severe("Connessione al database non valida");
+            return 0;
+        }
+        String sql = "SELECT COUNT(*) AS total FROM tracked_flights WHERE chat_id = ? AND active = TRUE";
+        try (PreparedStatement stmt = prepareStatement(sql)) {
+            stmt.setLong(1, chatId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next())
+                    return rs.getInt("total");
+            }
+        }
+        return 0;
     }
 }

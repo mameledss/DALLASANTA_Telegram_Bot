@@ -2,11 +2,7 @@ package com.flightbot.bot;
 
 import com.flightbot.config.ConfigLoader;
 import com.flightbot.database.DatabaseManager;
-import com.flightbot.models.Airport;
-import com.flightbot.models.Flight;
-import com.flightbot.models.Luggage;
-import com.flightbot.models.Ticket;
-import com.flightbot.models.Weather;
+import com.flightbot.models.*;
 import com.flightbot.services.*;
 import org.quartz.SchedulerException;
 import java.util.logging.Logger;
@@ -47,11 +43,12 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
     private final ImageService imageService;
     private final NotificationScheduler notificationScheduler;
     private final LuggageService luggageService;
+    private final OcrService ocrService;
     //map per tenere traccia di stato conversazione per ogni utente
     private final Map<Long, String> userStates = new HashMap<>(); //<id utente, stato corrente>
     //memorizza i dati raccolti durante la conversazione
     private final Map<Long, Map<String, String>> userContexts = new HashMap<>(); //<id utente, map di dati raccolti>
-
+    private final Map<Long, List<String>> userOcrFlights = new HashMap<>();
     public FlyAdvisorBot() throws SchedulerException {
         //inizializza il client Telegram ottenendo il token dal file di configurazione
         this.telegramClient = new OkHttpTelegramClient(ConfigLoader.getTelegramBotToken());
@@ -64,6 +61,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
         this.imageService = new ImageService();
         this.notificationScheduler = new NotificationScheduler();
         this.luggageService = new LuggageService();
+        this.ocrService = new OcrService();
 
         DatabaseManager.getInstance(); //inizializza il database
     }
@@ -71,11 +69,14 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
     @Override
     public void consume(Update update) {
         try {
+            aggiornaProfiloUtente(update);
             if (update.hasMessage()) { //se l'update contiene un messaggio
                 Message msg = update.getMessage(); //estrae il messaggio
                 long chatId = msg.getChatId(); //estrae l'id del chat
                 if (msg.hasText())  //se il messaggio contiene testo
                     gestisciMessaggioTesto(chatId, msg.getText()); //chiama il metodo per gestire il testo
+                else if (msg.hasDocument() || msg.hasPhoto()) //se il messaggio contiene un'immagine
+                    gestisciImmagine(chatId, msg); //chiama il metodo per gestire l'immagine
             } else if (update.hasCallbackQuery()) { //gestione click pulsante inline nella chat
                 gestisciCallbackQuery(update);
             }
@@ -86,18 +87,20 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
 
     private void gestisciMessaggioTesto(long chatId, String testo) {
         String stato = userStates.get(chatId); //estrae stato della conversazione in base all'id utente
+        logger.info(String.format("Chat %d - Testo: '%s' - Stato: %s", chatId, testo, stato));
         if (testo.startsWith("/")) //se il testo inizia con /
             gestisciComando(chatId, testo); //chiama metodo per gestione dei comandi
         else if (stato != null) //se lo stato non è null
             gestisciStato(chatId, testo, stato); //chiama metodo per gestire lo stato
         else //altrimenti
-            invioMsg(chatId, "Usa /help per vedere i comandi disponibili."); //comando non valido
+            invioMsg(chatId, "❓Usa /help per vedere i comandi disponibili."); //comando non valido
     }
 
     private void gestisciComando(long chatId, String comando) {
         String[] parti = comando.split(" ", 2); //separa la stringa in 2
         String cmd = parti[0].toLowerCase(); //la prima parte in minuscolo
         String args = parti.length > 1 ? parti[1] : ""; //se ci sono almeno due parti, args è la seconda parte, altrimenti ""
+        registraUtilizzoComando(chatId, cmd);
         //switch comandi possibili
         switch (cmd) {
             case "/start":
@@ -110,7 +113,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 if (!args.isEmpty()) //se la seconda parte non è vuota
                     tracciaVolo(chatId, args); //chiama metodo per tracciare volo
                 else {
-                    invioMsg(chatId, "Inserisci il numero del volo da tracciare:");
+                    invioMsg(chatId, "✈️ Inserisci il numero del volo da tracciare:");
                     userStates.put(chatId, "AWAITING_FLIGHT_NUMBER"); //imposta lo stato di attesa per numero volo
                 }
                 break;
@@ -118,7 +121,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 if (!args.isEmpty()) //se la seconda parte non è vuota
                     getInfoVolo(chatId, args); //chiama metodo per info volo
                 else {
-                    invioMsg(chatId, "Inserisci il numero del volo:");
+                    invioMsg(chatId, "✈️ Inserisci il numero del volo:");
                     userStates.put(chatId, "AWAITING_FLIGHT_INFO"); //imposta stato di attesa numero volo
                 }
                 break;
@@ -126,7 +129,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 if (!args.isEmpty())
                     getInfoAeroporto(chatId, args);
                 else {
-                    invioMsg(chatId, "Inserisci il codice IATA dell'aeroporto (es. MXP):");
+                    invioMsg(chatId, "🛬 Inserisci il codice IATA dell'aeroporto (es. MXP):");
                     userStates.put(chatId, "AWAITING_AIRPORT_CODE");
                 }
                 break;
@@ -134,17 +137,17 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 if (!args.isEmpty())
                     getInfoMeteo(chatId, args);
                 else {
-                    invioMsg(chatId, "Inserisci il nome della città:");
+                    invioMsg(chatId, "🏙️ Inserisci il nome della città:");
                     userStates.put(chatId, "AWAITING_WEATHER_CITY");
                 }
                 break;
             case "/tickets":
-                invioMsg(chatId, "Inserisci partenza (codice IATA):");
+                invioMsg(chatId, "🛫 Inserisci partenza (codice IATA):");
                 userStates.put(chatId, "AWAITING_TICKET_FROM");
                 userContexts.put(chatId, new HashMap<>());
                 break;
             case "/notify":
-                invioMsg(chatId, "Inserisci il numero del volo per impostare una notifica:");
+                invioMsg(chatId, "⏱️ Inserisci il numero del volo per impostare una notifica:");
                 userStates.put(chatId, "AWAITING_NOTIFY_FLIGHT");
                 userContexts.put(chatId, new HashMap<>());
                 break;
@@ -161,8 +164,18 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             case "/preferences":
                 mostraImpostazioni(chatId);
                 break;
+            case "/ocr":
+                invioMsg(chatId, "📸 Invia un'immagine di un tabellone dell'aeroporto e estrarrò i voli per te!");
+                userStates.put(chatId, "AWAITING_AIRPORT_BOARD");
+                break;
+            case "/cancel":
+                annullaOperazione(chatId);
+                break;
+            case "/info":
+                mostraInfoUtente(chatId);
+                break;
             default:
-                invioMsg(chatId, "Comando non riconosciuto. Usa /help per la lista dei comandi.");
+                invioMsg(chatId, "❌ Comando non riconosciuto. Usa /help per la lista dei comandi.");
         }
     }
 
@@ -188,12 +201,12 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 break;
             case "AWAITING_TICKET_FROM":
                 contesto.put("from", input.toUpperCase());
-                invioMsg(chatId, "Inserisci destinazione (codice IATA):");
+                invioMsg(chatId, "🗺️ Inserisci destinazione (codice IATA):");
                 userStates.put(chatId, "AWAITING_TICKET_TO");
                 break;
             case "AWAITING_TICKET_TO":
                 contesto.put("to", input.toUpperCase());
-                invioMsg(chatId, "Inserisci la data (YYYY-MM-DD):");
+                invioMsg(chatId, "📅 Inserisci la data (YYYY-MM-DD):");
                 userStates.put(chatId, "AWAITING_TICKET_DATE");
                 break;
             case "AWAITING_TICKET_DATE":
@@ -203,7 +216,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 break;
             case "AWAITING_NOTIFY_FLIGHT":
                 contesto.put("flight", input.toUpperCase());
-                invioMsg(chatId, "Tra quanti minuti vuoi ricevere la notifica?");
+                invioMsg(chatId, "🕝 Tra quanti minuti vuoi ricevere la notifica?");
                 userStates.put(chatId, "AWAITING_NOTIFY_TIME");
                 break;
             case "AWAITING_NOTIFY_TIME":
@@ -211,7 +224,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                     int minuti = Integer.parseInt(input);
                     gestisciNotifiche(chatId, contesto.get("flight"), minuti);
                 } catch (NumberFormatException e) {
-                    invioMsg(chatId, "Inserisci un numero valido di minuti.");
+                    invioMsg(chatId, "❌ Inserisci un numero valido di minuti.");
                 }
                 userStates.remove(chatId);
                 userContexts.remove(chatId);
@@ -220,7 +233,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 try {
                     int minuti = Integer.parseInt(input.trim()); //converte a intero
                     if (minuti < 1 || minuti > 1440) { //max 24 ore
-                        invioMsg(chatId, "Inserisci un valore tra 1 e 1440 minuti (24 ore).");
+                        invioMsg(chatId, "❌ Inserisci un valore tra 1 e 1440 minuti (24 ore).");
                         return;
                     }
                     try { //modifica intervallo notifiche se le notifiche sono attivate
@@ -231,9 +244,37 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                     invioMsg(chatId, "✅ Intervallo notifiche aggiornato a " + minuti + " minuti.");
                     mostraImpostazioni(chatId);
                 } catch (NumberFormatException e) {
-                    invioMsg(chatId, "Inserisci un numero valido di minuti.");
+                    invioMsg(chatId, "❌ Inserisci un numero valido di minuti.");
                 }
                 userStates.remove(chatId); //rimuove lo stato corrente della conversazione
+                break;
+            case "AWAITING_AIRPORT_BOARD":
+                invioMsg(chatId, "❌ Per favore, invia un'immagine, non un testo.");
+                break;
+            case "AWAITING_OCR_FLIGHT_SELECTION":
+                logger.info(String.format("Gestendo selezione OCR per chat %d: input='%s'", chatId, input));
+                try {
+                    int selezione = Integer.parseInt(input.trim());
+                    List<String> voliEstratti = userOcrFlights.get(chatId);
+
+                    if (voliEstratti == null || selezione < 1 || selezione > voliEstratti.size()) {
+                        invioMsg(chatId, "❌ Selezione non valida. Inserisci un numero tra 1 e " +
+                                (voliEstratti != null ? voliEstratti.size() : 0));
+                        return;
+                    }
+                    String voloSelezionato = voliEstratti.get(selezione - 1);
+
+                    userContexts.put(chatId, contesto); //salva il volo nel contesto
+                    contesto.put("flight", voloSelezionato.toUpperCase());
+
+                    invioMsg(chatId, "✈️ Hai selezionato il volo: " + voloSelezionato + "\n\nTra quanti minuti vuoi ricevere la notifica?");
+
+                    userStates.put(chatId, "AWAITING_NOTIFY_TIME"); //passa allo stato AWAITING_NOTIFY_TIME
+                    userOcrFlights.remove(chatId);
+
+                } catch (NumberFormatException e) {
+                    invioMsg(chatId, "❌ Inserisci un numero valido.");
+                }
                 break;
         }
     }
@@ -300,6 +341,9 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             case "luggage":
                 gestisciComando(chatId, "/luggage");
                 break;
+            case "ocr":
+                gestisciComando(chatId, "/ocr");
+                break;
             case "settings":
                 mostraImpostazioni(chatId);
                 break;
@@ -361,23 +405,102 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
         String help = """
                 📋 Comandi disponibili:
                 
-                /flight <numero> - Info su un volo
-                /track <numero> - Traccia un volo
-                /airport <codice> - Info aeroporto
-                /weather <città> - Meteo
-                /tickets - Cerca biglietti
-                /notify - Imposta notifica
-                /myflights - I tuoi voli tracciati
-                /settings - Impostazioni personali
-                /luggage - Info bagaglio a mano
-                /menu - Menu principale
+                /flight <numero> - ✈️ Info su un volo
+                /track <numero> - 📋 Traccia un volo
+                /airport <codice> - 🔍 Info aeroporto
+                /weather <città> - 🌤️ Meteo
+                /tickets - 🎫 Cerca biglietti
+                /notify - 🔔 Imposta notifica
+                /myflights - 💺 I tuoi voli tracciati
+                /settings - ⚙️ Impostazioni personali
+                /luggage - 🧳 Info bagaglio a mano
+                /ocr - 📷 Estrai voli da tabellone
+                /menu - 📑 Menu principale
+                /cancel - ❌ Annulla operazione corrente
                 
                 Esempi:
                 /flight AZ123
                 /airport MXP
                 /weather Milano
+                /ocr (invia foto tabellone)
                 """;
         invioMsg(chatId, help);
+    }
+
+    private void gestisciImmagine(long chatId, Message msg) {
+        String stato = userStates.get(chatId); //ottiene lo stato corrente della conversazione
+        
+        if ("AWAITING_AIRPORT_BOARD".equals(stato)) //se lo stato è AWAITING_AIRPORT_BOARD
+            elaboraTabelloneAeroporto(chatId, msg);
+        else
+            invioMsg(chatId, "❌ Immagine non attesa. Usa /ocr per inviare un'immagine di un tabellone.");
+    }
+
+    private void annullaOperazione(long chatId) {
+        String statoCorrente = userStates.get(chatId);
+        
+        if (statoCorrente == null) {
+            invioMsg(chatId, "ℹ️ Non c'è nessuna operazione in corso da annullare.");
+            return;
+        }
+        userStates.remove(chatId); //rimuove lo stato corrente
+        userContexts.remove(chatId); //timuove eventuali dati del contesto
+        userOcrFlights.remove(chatId); //rimuove eventuali voli OCR salvati
+        
+        invioMsg(chatId, "✅ Operazione annullata. Usa /help per vedere i comandi disponibili.");
+    }
+
+    private void elaboraTabelloneAeroporto(long chatId, Message msg) {
+        invioMsg(chatId, "🔍 Analizzando il tabellone dell'aeroporto...");
+
+        try {
+            String fileId = null;
+            if (msg.hasPhoto())
+                //accede all'ultimo indice della lista, per ottenere versione con qualità migliore disponibile [3]
+                fileId = msg.getPhoto().get(msg.getPhoto().size() - 1).getFileId();
+            else if (msg.hasDocument())
+                fileId = msg.getDocument().getFileId();
+
+            if (fileId != null) {
+                File imagineTemp = imageService.scaricaImmagineDaTelegram(fileId, telegramClient);
+
+                if (imagineTemp != null && imagineTemp.exists()) {
+                    Map<String, String> voli = ocrService.estraiVoliEOre(imagineTemp.getAbsolutePath()); //<Codice, Orario>
+
+                    if (voli.isEmpty()) {
+                        logger.warning("Nessun volo estratto dal tabellone.");
+                        invioMsg(chatId, "❌ Non sono riuscito a riconoscere voli nell'immagine.\n\n" +
+                                "Assicurati che:\n" +
+                                "• L'immagine sia chiara e ben illuminata\n" +
+                                "• Il tabellone sia completamente visibile\n" +
+                                "• Il testo sia leggibile");
+                    } else {
+                        List<String> listaVoli = new ArrayList<>(voli.keySet());
+                        userOcrFlights.put(chatId, listaVoli); //salva i voli associandoli a chatId
+
+                        StringBuilder risultato = new StringBuilder("✈️ Voli riconosciuti dal tabellone:\n\n");
+                        int count = 1;
+                        for (Map.Entry<String, String> volo : voli.entrySet()) { //per ogni coppia volo-orario
+                            risultato.append(String.format("%d. Volo: %s | Orario: %s\n", count++, volo.getKey(), volo.getValue()));
+                        }
+                        risultato.append("\n⚠️ Ricorda: questi dati sono estratti per OCR e potrebbero non essere accurati al 100%.");
+                        risultato.append("\n\n⏲️ Vuoi impostare una notifica per uno di questi voli?");
+                        risultato.append("\n\n🔢 Inserisci il numero corrispondente al volo:");
+
+                        invioMsg(chatId, risultato.toString());
+                        userContexts.put(chatId, new HashMap<>());
+                        userStates.put(chatId, "AWAITING_OCR_FLIGHT_SELECTION"); //imposta lo stato per attendere la selezione
+                    }
+                    if (!imagineTemp.delete())
+                        logger.warning("Impossibile eliminare il file temporaneo: " + imagineTemp.getAbsolutePath());
+                }
+                else
+                    invioMsg(chatId, "❌ Errore nel download dell'immagine. Riprova.");
+            }
+        } catch (Exception e) {
+            logger.severe(String.format("Errore nell'elaborazione del tabellone: %s", e.getMessage()));
+            invioMsg(chatId, "❌ Errore nell'analisi dell'immagine. Riprova con una foto più chiara.");
+        }
     }
 
     private void mostraMenu(long chatId) {
@@ -389,6 +512,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
         keyboard.add(new InlineKeyboardRow(creaBottone("🌤️ Meteo", "menu:weather")));
         keyboard.add(new InlineKeyboardRow(creaBottone("🎫 Biglietti", "menu:tickets")));
         keyboard.add(new InlineKeyboardRow(creaBottone("🧳 Bagaglio a mano", "menu:luggage")));
+        keyboard.add(new InlineKeyboardRow(creaBottone("🤳🏻 OCR Tabellone", "menu:ocr")));
         keyboard.add(new InlineKeyboardRow(creaBottone("⚙️ Impostazioni", "menu:settings")));
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup(keyboard);
         msg.setReplyMarkup(markup); //invia i pulsanti insieme al messaggio
@@ -449,7 +573,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             return;
         }
 
-        SendMessage msg = new SendMessage(String.valueOf(chatId), "Seleziona una compagnia aerea per vedere le dimensioni e il peso consentiti per il bagaglio a mano:");
+        SendMessage msg = new SendMessage(String.valueOf(chatId), "🧑🏻‍✈️ Seleziona una compagnia aerea per vedere le dimensioni e il peso consentiti per il bagaglio a mano:");
         //crea una tastiera con pulsanti per le varie compagnie aeree
         List<InlineKeyboardRow> keyboard = new ArrayList<>();
         InlineKeyboardRow rigaCorrente = new InlineKeyboardRow();
@@ -753,6 +877,87 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             telegramClient.execute(sendPhoto);
         } catch (TelegramApiException e) {
             logger.severe(String.format("Errore nell'invio foto: %s", e.getMessage()));
+        }
+    }
+
+    private void aggiornaProfiloUtente(Update update) {
+        try {
+            if (update.hasMessage() && update.getMessage().getFrom() != null) { //se l'update contiene un messaggio normale
+                var utente = update.getMessage().getFrom(); //estrae le info dell'utente
+                //aggiorna il database con: ID della chat, username, nome e cognome dell'utente
+                DatabaseManager.getInstance().aggiornaProfiloUtente(
+                        update.getMessage().getChatId(),
+                        utente.getUserName(),
+                        utente.getFirstName(),
+                        utente.getLastName()
+                );
+            } //fa la stessa cosa anche se i dati provengono da un bottone inline
+            else if (update.hasCallbackQuery() && update.getCallbackQuery().getFrom() != null) {
+                var utente = update.getCallbackQuery().getFrom();
+                DatabaseManager.getInstance().aggiornaProfiloUtente(
+                        update.getCallbackQuery().getMessage().getChatId(),
+                        utente.getUserName(),
+                        utente.getFirstName(),
+                        utente.getLastName()
+                );
+            }
+        } catch (Exception e) {
+            logger.warning(String.format("Impossibile aggiornare profilo utente: %s", e.getMessage()));
+        }
+    }
+
+    private void registraUtilizzoComando(long chatId, String comando) {
+        try {
+            DatabaseManager.getInstance().incrementaUtilizzoComando(chatId, comando); //incrementa il contatore dell'utilizzo del comando
+        } catch (Exception e) {
+            logger.warning(String.format("Impossibile registrare utilizzo comando %s: %s", comando, e.getMessage()));
+        }
+    }
+
+    private void mostraInfoUtente(long chatId) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance(); //ottiene istanza del db
+            UserProfile profilo = db.getProfiloUtente(chatId);
+
+            String username = profilo != null && profilo.getUsername() != null
+                    ? "@" + profilo.getUsername()
+                    : "N/D";
+
+            String nomeCompleto = profilo != null
+                    ? ((profilo.getNome() != null ? profilo.getNome() : "") + " " +
+                    (profilo.getCognome() != null ? profilo.getCognome() : "")).trim()
+                    : "";
+            if (nomeCompleto.isEmpty())
+                nomeCompleto = "N/D";
+
+            String primaInterazione = profilo != null && profilo.getCreatoA() != null
+                    ? profilo.getCreatoA().toLocalDateTime().toString()
+                    : "N/D";
+            String ultimaAttivita = profilo != null && profilo.getUltimoAccesso() != null
+                    ? profilo.getUltimoAccesso().toLocalDateTime().toString()
+                    : "N/D";
+
+            int totaleComandi = db.getTotaleComandi(chatId);
+            String comandoPreferito = db.getComandoPiuUsato(chatId);
+            int voliTracciati = db.getConteggioVoliTracciati(chatId);
+            boolean notificheAbilitate = db.areNotificheAbilitate(chatId);
+            int intervallo = db.getIntervalloMinuti(chatId);
+
+            StringBuilder info = new StringBuilder("ℹ️ Le tue informazioni:\n\n");
+            info.append("• Nome utente: ").append(username).append("\n");
+            info.append("• Nome: ").append(nomeCompleto).append("\n");
+            info.append("• Prima interazione: ").append(primaInterazione).append("\n");
+            info.append("• Ultima attività: ").append(ultimaAttivita).append("\n\n");
+            info.append("📊 Utilizzo:\n");
+            info.append("• Comandi totali: ").append(totaleComandi).append("\n");
+            info.append("• Comando più usato: ").append(comandoPreferito != null ? comandoPreferito : "N/D").append("\n\n");
+            info.append("✈️ Voli tracciati attivi: ").append(voliTracciati).append("\n");
+            info.append("🔔 Notifiche: ").append(notificheAbilitate ? "attive" : "disattivate").append(" (ogni ").append(intervallo).append(" min)");
+
+            invioMsg(chatId, info.toString());
+        } catch (Exception e) {
+            logger.severe(String.format("Errore nella lettura info utente: %s", e.getMessage()));
+            invioMsg(chatId, "❌ Non sono riuscito a recuperare le informazioni.");
         }
     }
 

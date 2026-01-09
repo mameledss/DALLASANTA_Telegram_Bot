@@ -1,11 +1,15 @@
 package com.flightbot.services;
 
+import com.flightbot.config.ConfigLoader;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.telegram.telegrambots.meta.api.methods.GetFile;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -13,8 +17,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-
-
 
 public class ImageService {
     private static final Logger logger = Logger.getLogger(ImageService.class.getName());
@@ -44,6 +46,43 @@ public class ImageService {
         } catch (IOException e) {
             logger.severe(String.format("Errore download logo compagnia: %s", e.getMessage()));
             return creaLogoDefaultCompagnia(iataCompagnia);
+        }
+    }
+
+    public java.io.File scaricaImmagineDaTelegram(String fileId, TelegramClient telegramClient) {
+        try {
+            GetFile getFile = new GetFile(fileId); //crea oggetto di richiesta file
+            //specifico tipo di file per evitare contrasto con java.io.File
+            org.telegram.telegrambots.meta.api.objects.File file = telegramClient.execute(getFile); //invia effettivamente la richiesta a Telegram tramite client del bot
+
+            String percorsoFile = file.getFilePath();
+            String fileUrl = "https://api.telegram.org/file/bot" +
+                    ConfigLoader.getTelegramBotToken() + "/" + percorsoFile;
+
+            Request request = new Request.Builder()
+                    .url(fileUrl)
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    logger.severe("Errore nel download dell'immagine da Telegram");
+                    return null;
+                }
+                InputStream inputStream = response.body().byteStream();
+                BufferedImage immagine = ImageIO.read(inputStream);
+
+                if (immagine == null) return null;
+
+                java.io.File tempFile = java.io.File.createTempFile("ocr_board_", ".jpg");
+                ImageIO.write(immagine, "JPG", tempFile);
+                tempFile.deleteOnExit();
+
+                logger.info("Immagine tabellone scaricata con successo");
+                return tempFile;
+            }
+        } catch (TelegramApiException | IOException e) {
+            logger.severe(String.format("Errore download immagine da Telegram: %s", e.getMessage()));
+            return null;
         }
     }
 

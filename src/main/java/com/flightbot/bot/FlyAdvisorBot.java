@@ -861,6 +861,8 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
 
     private void invioMsg(long chatId, String testo) {
         SendMessage msg = new SendMessage(String.valueOf(chatId), testo);
+        if (testo != null && testo.contains("`"))
+            msg.setParseMode("Markdown");
 
         try {
             telegramClient.execute(msg);

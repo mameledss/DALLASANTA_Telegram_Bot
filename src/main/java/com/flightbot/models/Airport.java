@@ -87,8 +87,8 @@ public class Airport {
     public String toString() {
         StringBuilder info = new StringBuilder();
         info.append("🏢 ").append(name != null ? name : "N/A").append("\n\n");
-        info.append("📍 Codice IATA: ").append(iataCode != null ? iataCode : "N/A").append("\n");
-        info.append("📍 Codice ICAO: ").append(icaoCode != null ? icaoCode : "N/A").append("\n");
+        info.append("📍 Codice IATA: ").append(iataCode != null ? "`" + iataCode + "`" : "N/A").append("\n");
+        info.append("📍 Codice ICAO: ").append(icaoCode != null ? "`" + icaoCode + "`" : "N/A").append("\n");
         info.append("🏙️ Città: ").append(city != null ? city : "N/A").append("\n");
         info.append("🌍 Paese: ").append(country != null ? country : "N/A").append("\n");
 

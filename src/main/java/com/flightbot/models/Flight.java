@@ -223,7 +223,7 @@ public class Flight {
     @Override
     public String toString() {
         StringBuilder info = new StringBuilder();
-        info.append("✈️ Volo: ").append(flightNumber != null ? flightNumber : "N/A").append("\n");
+        info.append("✈️ Volo: ").append(flightNumber != null ? "`" + flightNumber + "`" : "N/A").append("\n");
         info.append("🏢 Compagnia: ").append(airline != null ? airline : "N/A").append("\n");
         info.append("📊 Stato: ").append(status != null ? status : "N/A").append("\n");
         if (flightDate != null)
@@ -233,10 +233,10 @@ public class Flight {
         info.append("🛫 Partenza:\n");
         info.append("-🏢 Aeroporto: ").append(departureAirport != null ? departureAirport : "N/A");
         if (departureIata != null)
-            info.append(" (").append(departureIata).append(")");
+            info.append(" (`").append(departureIata).append("`)");
         info.append("\n");
         if (departureIcao != null)
-            info.append("-📑 ICAO: ").append(departureIcao).append("\n");
+            info.append("-📑 ICAO: ").append("`").append(departureIcao).append("`").append("\n");
         info.append("-🕝 Orario: ").append(departureTime != null ? formattaDataOra(departureTime) : "N/A").append("\n");
         if (gate != null)
             info.append("-🛂 Gate: ").append(gate).append("\n");
@@ -246,10 +246,10 @@ public class Flight {
         info.append("\n🛬 Arrivo:\n");
         info.append("-🏢 Aeroporto: ").append(arrivalAirport != null ? arrivalAirport : "N/A");
         if (arrivalIata != null)
-            info.append(" (").append(arrivalIata).append(")");
+            info.append(" (`").append(arrivalIata).append("`)");
         info.append("\n");
         if (arrivalIcao != null)
-            info.append("-📑 ICAO: ").append(arrivalIcao).append("\n");
+            info.append("-📑 ICAO: ").append("`").append(arrivalIcao).append("`").append("\n");
         info.append("-🕝 Orario: ").append(arrivalTime != null ? formattaDataOra(arrivalTime) : "N/A").append("\n");
         if (arrivalTerminal != null)
             info.append("-🏢 Terminal: ").append(arrivalTerminal).append("\n");
@@ -262,7 +262,7 @@ public class Flight {
             info.append("\n✈️ Aeromobile: ").append(aircraftType).append("\n");
 
         if (icao24 != null) //ICAO24->id 24 bit per aerei
-            info.append("\n📡 ICAO24: ").append(icao24).append("\n");
+            info.append("\n📡 ICAO24: ").append("`").append(icao24).append("`").append("\n");
 
         return info.toString();
     }

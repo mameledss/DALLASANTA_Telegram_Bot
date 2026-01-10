@@ -381,8 +381,27 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     private void invioMsgBenvenuto(long chatId) {
-        String benvenuto = """
-                ✈️ Benvenuto in FlyAdvisor! ✈️
+        String nomeVisualizzato = "utente";
+        try {
+            DatabaseManager db = DatabaseManager.getInstance(); //ottiene l'istanza del database
+            UserProfile profilo = db.getProfiloUtente(chatId); //ottiene il profilo utente dal database
+            if (profilo != null) {
+                if (profilo.getUsername() != null && !profilo.getUsername().isEmpty()) {
+                    nomeVisualizzato = "@" + profilo.getUsername();
+                } else {
+                    String nome = profilo.getNome();
+                    String cognome = profilo.getCognome();
+                    String completo = ((nome != null ? nome : "") + " " + (cognome != null ? cognome : "")).trim();
+                    if (!completo.isEmpty())
+                        nomeVisualizzato = completo;
+                }
+            }
+        } catch (Exception e) {
+            logger.warning(String.format("Impossibile recuperare profilo utente per il benvenuto: %s", e.getMessage()));
+        }
+
+        String benvenuto = String.format("""
+                ✈️ Benvenuto %s in FlyAdvisor! ✈️
                 
                 Il tuo assistente personale per i voli!
                 
@@ -397,7 +416,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 • 🧳 Info bagaglio a mano
                 
                 Usa /help per vedere tutti i comandi!
-                """;
+                """, nomeVisualizzato);
         inviaMessaggioBottoni(chatId, benvenuto);
     }
 

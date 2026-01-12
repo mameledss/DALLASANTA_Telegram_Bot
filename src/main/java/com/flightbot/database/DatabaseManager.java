@@ -127,7 +127,7 @@ public class DatabaseManager {
         }
     }
 
-    public void removeTrackedFlight(long chatId, String numeroVolo) throws SQLException {
+    public void rimuoviVoloTracciatoDb(long chatId, String numeroVolo) throws SQLException {
         if (!isConnessioneValida()) {
             logger.severe("Connessione al database non valida");
             return;
@@ -153,7 +153,19 @@ public class DatabaseManager {
         return rs;
     }
 
-    public void scheduleNotification(long chatId, String numeroVolo, Timestamp tempoNotifica, String msg) throws SQLException {
+    public ResultSet getTuttiVoliTracciati() throws SQLException {
+        if (!isConnessioneValida()) {
+            logger.severe("Connessione al database non valida");
+            return null;
+        }
+        String sql = "SELECT * FROM tracked_flights WHERE active = TRUE";
+        PreparedStatement stmt = prepareStatement(sql);
+        ResultSet rs = stmt.executeQuery();
+        //il PreparedStatement non viene chiuso qui per permettere la lettura del ResultSet
+        return rs;
+    }
+
+    public void programmaNotifica(long chatId, String numeroVolo, Timestamp tempoNotifica, String msg) throws SQLException {
         if (!isConnessioneValida()) {
             logger.severe("Connessione al database non valida");
             return;

@@ -5,9 +5,10 @@ import com.flightbot.models.Flight;
 import org.quartz.*;
 import org.quartz.impl.StdSchedulerFactory;
 import java.util.logging.Logger;
-
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 
 public class NotificationScheduler {
@@ -39,7 +40,7 @@ public class NotificationScheduler {
 
             scheduler.scheduleJob(job, trigger); //registra job e trigger nello scheduler di quartz
 
-            DatabaseManager.getInstance().scheduleNotification(chatId, numeroVolo, tempoNotifica, msg); //salva i dettagli della notifica nel db
+            DatabaseManager.getInstance().programmaNotifica(chatId, numeroVolo, tempoNotifica, msg); //salva i dettagli della notifica nel db
 
             logger.info(String.format("Notifica impostata per chat %d alle %s", chatId, tempoNotifica));
         } catch (Exception e) {
@@ -80,6 +81,45 @@ public class NotificationScheduler {
             logger.info(String.format("Notifica cancellata %s", jobId));
         } catch (SchedulerException e) {
             logger.severe(String.format("Errore nel cancellare notifica: %s", e.getMessage()));
+        }
+    }
+
+    public void cancellaVoloCheck(long chatId, String numeroVolo) {
+        try {
+            scheduler.deleteJob(new JobKey("flight_check_" + chatId + "_" + numeroVolo));
+            logger.info(String.format("Check periodico cancellato per volo %s da chat %d", numeroVolo, chatId));
+        } catch (SchedulerException e) {
+            logger.severe(String.format("Errore nel cancellare check periodico: %s", e.getMessage()));
+        }
+    }
+
+    public void ripristinaVoliTracciati(DatabaseManager db, int intervalloMinutiDefault, Object bot) {
+        try {
+            ResultSet rs = db.getTuttiVoliTracciati(); //legge tutti i voli tracciati attivi dal database
+            
+            if (rs != null) {
+                while (rs.next()) {
+                    long chatId = rs.getLong("chat_id");
+                    String numeroVolo = rs.getString("flight_number");
+                    
+                    try {
+                        //recupera l'intervallo personalizzato dell'utente, o usa il default
+                        int intervalloUtente = intervalloMinutiDefault;
+                        try {
+                            intervalloUtente = db.getIntervalloMinuti(chatId);
+                        } catch (Exception e) {
+                            logger.warning(String.format("Impossibile recuperare intervallo per chat %d, uso default", chatId));
+                        }
+                        pianificaControllo(chatId, numeroVolo, intervalloUtente, bot);
+                    } catch (Exception e) {
+                        logger.warning(String.format("Impossibile riprogrammare volo %s per chat %d: %s", numeroVolo, chatId, e.getMessage()));
+                    }
+                }
+                rs.close();
+            }
+            logger.info("Ripristino voli tracciati completato");
+        } catch (SQLException e) {
+            logger.severe(String.format("Errore nel ripristino voli tracciati: %s", e.getMessage()));
         }
     }
 
@@ -153,7 +193,7 @@ public class NotificationScheduler {
             try {
                 String[] parti = isoDataOra.split("T");
                 String parteData = parti[0];
-                String parteOra = parti[1].substring(0, 5); // HH:MM
+                String parteOra = parti[1].substring(0, 5); //HH:MM
 
                 String[] partiData = parteData.split("-");
                 return partiData[2] + "/" + partiData[1] + "/" + partiData[0] + " " + parteOra;

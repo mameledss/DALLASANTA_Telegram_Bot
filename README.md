@@ -99,6 +99,7 @@ Il bot utilizza un sistema di stati per gestire gli input multi-step:
 - `AWAITING_NOTIFY_FLIGHT`: In attesa numero volo per notifica
 - `AWAITING_NOTIFY_TIME`: In attesa minuti per notifica
 - `AWAITING_NOTIFICATION_INTERVAL`: In attesa intervallo notifiche
+- `AWAITING_UNTRACK_FLIGHT_NUMBER`: In attesa numero volo per rimozione dal tracking
 
 #### Callback Query System
 Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
@@ -106,6 +107,7 @@ Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 - `view_map:NUMERO` - Visualizza mappa del volo (tratta o posizione live)
 - `view_aircraft:ID` - Visualizza immagine aereo
 - `track_flight:NUMERO` - Traccia volo specifico
+- `untrack:NUMERO` - Rimuovi volo dal tracking
 - `luggage:COMPAGNIA` - Info bagagli compagnia
 - `settings:AZIONE` - Gestione impostazioni
 
@@ -124,10 +126,16 @@ Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 - `/menu` - Menu interattivo con pulsanti
 - `/cancel` - Annulla l'operazione guidata in corso
 
-### ✈️ Funzionalità Voli
-- `/track [numero_volo]` - Traccia un volo specifico
+### ✈️ Tracciamento Voli
+- `/track [numero_volo]` - Traccia un volo specifico e ricevi aggiornamenti periodici
+- `/untrack [numero_volo]` - Rimuovi un volo dal tracking
 - `/flight [numero_volo]` - Ottieni informazioni dettagliate su un volo
-- `/myflights` - Mostra lista dei voli tracciati
+- `/myflights` - Mostra lista dei voli tracciati con pulsanti per rimuoverli istantaneamente
+
+#### Gestione Voli Tracciati
+Ci sono due modi per togliere un volo dal tracking:
+1. **Comando diretto**: `/untrack AZ123`
+2. **Pulsanti inline**: Usa `/myflights` per visualizzare i tuoi voli e clicca il pulsante ❌ 
 
 ### ℹ️ Informazioni
 - `/airport [codice_IATA]` - Informazioni su un aeroporto
@@ -199,6 +207,9 @@ Le interazioni tramite pulsanti inline utilizzano il formato `azione:parametro`:
 - Formattazione messaggi con emoji
 - Gestione errori e messaggi di fallback
 
+## 📈 Diagramma E/R Database
+![Diagramma ER Database](https://files.catbox.moe/aqlur2.png)
+
 ## ⚙️ Configurazione
 
 ### 📄 File `conf.properties`
@@ -208,7 +219,7 @@ Contiene:
 - Configurazione database
 - Impostazioni scheduler
 
-⚠️IMPORTANTE: Per il corretto funzionamento del bot, rinominare il file confPUBBLICO.properties in conf.properties e compilarlo con le proprie credenziali API Key.
+⚠️IMPORTANTE: Per il corretto funzionamento del bot, sostituire il file conf.example.properties con il proprio conf.properties completandolo con le proprie API Key.
 
 ### 📸 OCR (Tesseract)
 - I dati linguistici necessari (`tessdata/eng.traineddata`) sono già inclusi in `src/main/resources/tessdata`

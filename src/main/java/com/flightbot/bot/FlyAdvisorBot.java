@@ -64,6 +64,14 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
         this.ocrService = new OcrService();
 
         DatabaseManager.getInstance(); //inizializza il database
+        
+        //ripristina i voli tracciati all'avvio del bot
+        try {
+            notificationScheduler.ripristinaVoliTracciati(DatabaseManager.getInstance(), 15, telegramClient);
+            logger.info("Voli tracciati ripristinati al riavvio del bot");
+        } catch (Exception e) {
+            logger.warning(String.format("Errore nel ripristino dei voli tracciati: %s", e.getMessage()));
+        }
     }
 
     @Override
@@ -154,6 +162,14 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             case "/myflights":
                 mostraVoliTracciati(chatId);
                 break;
+            case "/untrack":
+                if (!args.isEmpty())
+                    rimuoviVoloTracciato(chatId, args);
+                else {
+                    invioMsg(chatId, "✈️ Inserisci il numero del volo da rimuovere dal tracking:");
+                    userStates.put(chatId, "AWAITING_UNTRACK_FLIGHT_NUMBER");
+                }
+                break;
             case "/menu":
                 mostraMenu(chatId);
                 break;
@@ -186,6 +202,10 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             case "AWAITING_FLIGHT_NUMBER":
                 tracciaVolo(chatId, input);
                 userStates.remove(chatId); //rimuove lo stato corrente della conversazione
+                break;
+            case "AWAITING_UNTRACK_FLIGHT_NUMBER":
+                rimuoviVoloTracciato(chatId, input);
+                userStates.remove(chatId);
                 break;
             case "AWAITING_FLIGHT_INFO":
                 getInfoVolo(chatId, input);
@@ -291,6 +311,12 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 if (parti.length > 1) {
                     String azioneMenu = parti[1];
                     gestisciMenu(chatId, azioneMenu);
+                }
+                break;
+            case "untrack":
+                if (parti.length > 1) {
+                    String numeroVolo = parti[1];
+                    rimuoviVoloTracciato(chatId, numeroVolo);
                 }
                 break;
             case "view_map":
@@ -426,6 +452,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 
                 /flight <numero> - ✈️ Info su un volo
                 /track <numero> - 📋 Traccia un volo
+                /untrack <numero> - ❌ Rimuovi volo dal tracking
                 /airport <codice> - 🔍 Info aeroporto
                 /weather <città> - 🌤️ Meteo
                 /tickets - 🎫 Cerca biglietti
@@ -439,6 +466,7 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
                 
                 Esempi:
                 /flight AZ123
+                /untrack AZ123
                 /airport MXP
                 /weather Milano
                 /ocr (invia foto tabellone)
@@ -698,6 +726,18 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
+    private void rimuoviVoloTracciato(long chatId, String numeroVolo) {
+        try {
+            DatabaseManager.getInstance().rimuoviVoloTracciatoDb(chatId, numeroVolo); //rimuove volo dal db
+            notificationScheduler.cancellaVoloCheck(chatId, numeroVolo); //cancella il job di controllo
+
+            invioMsg(chatId, "✅ Volo " + numeroVolo + " rimosso dal tracking.");
+        } catch (Exception e) {
+            logger.severe(String.format("Errore rimozione volo dal tracking: %s", e.getMessage()));
+            invioMsg(chatId, "❌ Errore nel rimuovere il volo dal tracking.");
+        }
+    }
+
     private void getInfoAeroporto(long chatId, String codiceIata) {
         invioMsg(chatId, "🔍 Ricerca informazioni per l'aeroporto " + codiceIata + "...");
 
@@ -778,20 +818,46 @@ public class FlyAdvisorBot implements LongPollingSingleThreadUpdateConsumer {
             ResultSet rs = DatabaseManager.getInstance().getVoliTracciati(chatId);
 
             StringBuilder risultato = new StringBuilder("📋 I tuoi voli tracciati:\n\n");
+            List<String> voli = new ArrayList<>();
             boolean haVoli = false;
 
             if (rs != null) {
                 while (rs.next()) {
                     haVoli = true;
                     String numeroVolo = rs.getString("flight_number");
+                    voli.add(numeroVolo);
                     risultato.append("✈️ ").append(numeroVolo).append("\n");
                 }
                 rs.close(); //chiude il ResultSet
             }
-            if (!haVoli)
+            if (!haVoli) {
                 risultato.append("Nessun volo tracciato. Usa /track <numero> per aggiungerne uno.");
-
-            invioMsg(chatId, risultato.toString());
+                invioMsg(chatId, risultato.toString());
+            } else {
+                //invia il messaggio con i pulsanti inline
+                SendMessage msg = new SendMessage(String.valueOf(chatId), risultato.toString());
+                
+                List<InlineKeyboardRow> keyboard = new ArrayList<>();
+                
+                for (String volo : voli) { //per ogni volo, crea il pulsante di rimozione
+                    InlineKeyboardRow riga = new InlineKeyboardRow();
+                    InlineKeyboardButton button = InlineKeyboardButton.builder()
+                            .text("❌ Rimuovi " + volo)
+                            .callbackData("untrack:" + volo)
+                            .build();
+                    riga.add(button);
+                    keyboard.add(riga);
+                }
+                
+                InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup(keyboard);
+                msg.setReplyMarkup(keyboardMarkup);
+                
+                try {
+                    telegramClient.execute(msg);
+                } catch (TelegramApiException e) {
+                    logger.severe(String.format("Errore nell'invio messaggio con tastiera: %s", e.getMessage()));
+                }
+            }
         } catch (Exception e) {
             logger.severe(String.format("Error showing tracked flights: %s", e.getMessage()));
             invioMsg(chatId, "❌ Errore nel recuperare i voli tracciati.");

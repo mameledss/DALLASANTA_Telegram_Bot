@@ -107,11 +107,19 @@ public class FlightService {
             if (aereo != null) {
                 flight.setRegistrazioneAereo(getStringONull(aereo, "registration"));
                 flight.setTipoAereo(getStringONull(aereo, "iata"));
+                //estrai icao24 dall'oggetto aircraft
+                if (flight.getIcao24() == null) {
+                    flight.setIcao24(getStringONull(aereo, "icao24"));
+                }
             }
 
             JsonObject datiLive = getJsonObjectONull(json, "live");
             if (datiLive != null) {
-                flight.setIcao24(getStringONull(datiLive, "hex"));
+                //priorità ai dati live se disponibili
+                String icao24Live = getStringONull(datiLive, "hex");
+                if (icao24Live != null)
+                    flight.setIcao24(icao24Live);
+
                 if (datiLive.get("latitude") != null && !datiLive.get("latitude").isJsonNull())
                     flight.setLatitudine(datiLive.get("latitude").getAsDouble());
 

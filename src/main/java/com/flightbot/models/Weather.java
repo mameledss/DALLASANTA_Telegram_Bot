@@ -115,7 +115,7 @@ public class Weather {
         if (date == null) {
             String emoji = getEmoji(icon);
             info.append(emoji).append(" Meteo per ").append(city != null ? city : "N/A").append("\n\n");
-            info.append(emoji).append(" ").append(description != null ? description : "N/A").append("\n");
+            info.append(emoji).append(" ").append(description != null ? description.substring(0, 1).toUpperCase() + description.substring(1) : "N/A").append("\n");
             info.append("🌡️ Temperatura: ").append(temperature != null ? String.format("%.1f", temperature) : "N/A").append("°C\n");
             info.append("🤔 Percepita: ").append(feelsLike != null ? String.format("%.1f", feelsLike) : "N/A").append("°C\n");
             info.append("💨 Vento: ").append(windSpeed != null ? String.format("%.1f", windSpeed) : "N/A").append(" m/s\n");

@@ -69,9 +69,23 @@ public class OcrService {
         Matcher matcherTempo = TIME_PATTERN.matcher(linea); //verifica se linea contiene orario
         if (matcherTempo.find()) {
             String orario = matcherTempo.group().replace(" ", ":"); //rimpiazza spazi con ":"
+            orario = formattaOrario(orario); //garantisce il formato HH:MM
             infoVolo.put("time", orario);
         }
         return infoVolo;
+    }
+
+    private String formattaOrario(String orario) {
+        if (orario == null || orario.isEmpty())
+            return orario;
+
+        String soloNumeri = orario.replaceAll("[^0-9]", ""); //rimuove tutti i caratteri non numerici
+
+        if (soloNumeri.length() == 4) //se ha 4 cifre
+            return soloNumeri.substring(0, 2) + ":" + soloNumeri.substring(2); //inserisce i due punti nel mezzo
+        
+        //se ha meno di 4 cifre o ha già il formato corretto, restituisce come è
+        return orario.contains(":") ? orario : soloNumeri;
     }
 
     public Map<String, String> estraiVoliEOre(String percorsoImm) {

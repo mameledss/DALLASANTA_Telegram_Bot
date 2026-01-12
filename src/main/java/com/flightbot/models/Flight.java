@@ -225,7 +225,7 @@ public class Flight {
         StringBuilder info = new StringBuilder();
         info.append("✈️ Volo: ").append(flightNumber != null ? "`" + flightNumber + "`" : "N/A").append("\n");
         info.append("🏢 Compagnia: ").append(airline != null ? airline : "N/A").append("\n");
-        info.append("📊 Stato: ").append(status != null ? status : "N/A").append("\n");
+        info.append("📊 Stato: ").append(status != null ? status.substring(0, 1).toUpperCase() + status.substring(1) : "N/A").append("\n");
         if (flightDate != null)
             info.append("📅 Data: ").append(flightDate).append("\n");
         info.append("\n");

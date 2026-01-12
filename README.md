@@ -12,7 +12,7 @@
 ## ✨ Caratteristiche Principali
 
 - **✈️ Tracciamento Voli**: Monitora lo stato dei voli in tempo reale
-- **🏢 Informazioni Aeroporti**: Dettagli completi sugli aeroporti (codici IATA, posizioni, ecc.)
+- **🏢 Informazioni Aeroporti**: Dettagli completi sugli aeroporti (codici IATA, posizioni, ecc...)
 - **🌤️ Previsioni Meteo**: Condizioni meteorologiche per città e aeroporti
 - **🎫 Ricerca Biglietti**: Offerte di volo 
 - **🔔 Notifiche Personalizzate**: Avvisi programmati per i voli tracciati

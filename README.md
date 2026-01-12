@@ -1,6 +1,11 @@
+
 # ✈️ FlyAdvisor (@FlyAdvisorBot)
+[![Ultima release](https://img.shields.io/github/v/release/mameledss/DALLASANTA_Telegram_Bot)](https://github.com/mameledss/DALLASANTA_Telegram_Bot/releases)
+![Top Language](https://img.shields.io/github/languages/top/mameledss/DALLASANTA_Telegram_Bot)
+[![Last Commit](https://img.shields.io/github/last-commit/mameledss/DALLASANTA_Telegram_Bot)](https://github.com/mameledss/DALLASANTA_Telegram_Bot/commits/main)
 
 ![Banner logo](https://files.catbox.moe/ptsyub.png)
+
 
 **FlyAdvisorBot** è un bot Telegram per la **gestione** e il **monitoraggio** dei **voli**. Fornisce informazioni in **tempo reale** sui voli, aeroporti, condizioni **metorologiche**, offerte di **biglietti** e molto altro, con un'interfaccia dotata di **pulsanti**.
 

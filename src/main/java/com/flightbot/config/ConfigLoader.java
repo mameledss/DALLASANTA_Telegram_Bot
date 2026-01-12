@@ -29,9 +29,23 @@ public class ConfigLoader { //pattern Singleton
     }
 
     public String getProperty(String key) {
+        //prima prova a leggere da variabile d'ambiente
+        String envKey = key.replace(".", "_").toUpperCase();
+        String envValue = System.getenv(envKey);
+        if (envValue != null && !envValue.isEmpty()) {
+            return envValue;
+        }
+        //altrimenti legge dal file di configurazione
         return config.getString(key);
     }
     public String getProperty(String key, String defaultValue) {
+        //prima prova a leggere da variabile d'ambiente
+        String envKey = key.replace(".", "_").toUpperCase();
+        String envValue = System.getenv(envKey);
+        if (envValue != null && !envValue.isEmpty()) {
+            return envValue;
+        }
+        //altrimenti legge dal file di configurazione
         return config.getString(key, defaultValue);
     }
 

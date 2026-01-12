@@ -1,5 +1,7 @@
 # ✈️ FlyAdvisor (@FlyAdvisorBot)
 
+![Banner logo](https://files.catbox.moe/ptsyub.png)
+
 FlyAdvisorBot è un bot Telegram per la gestione e il monitoraggio dei voli. Fornisce informazioni in tempo reale sui voli, aeroporti, condizioni meteorologiche, offerte di biglietti e molto altro, con un'interfaccia dotata di pulsanti.
 
 ## ✨ Caratteristiche Principali
